@@ -1,0 +1,6 @@
+/target
+pkg
+Cargo.lock
+output.txt
+.idea
+
