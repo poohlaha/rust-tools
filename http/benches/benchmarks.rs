@@ -9,7 +9,7 @@ use std::time::Duration;
 
 // 异步性能测试函数
 async fn send_benchmark() {
-    let url = String::from("https://openapitest.xcsc.com:9090/open/customer/api/custAuth/validateImg");
+    let url = String::from("https://example.com");
     let data = json!({"test": "123456"});
     let options = Options {
         url,

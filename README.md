@@ -1,9 +1,9 @@
 # Rust Tools
 
-# 配置镜像
+## 配置镜像
   把 `config` 复制到 `$HOME/.cargo/config` 下。
 
-# 设置 `workspace`
+## 设置 `workspace`
   - `cargo init -- --workspace`
   - 在 `Cargo.toml` 中添加
   ```toml
@@ -13,7 +13,7 @@
   ]
   ```
 
-# 代码格式化
+## 代码格式化
   - 安装
     ```shell
     cargo install rustfmt
@@ -34,19 +34,19 @@
     cargo fmt
     ```
 
-# 打包
+## 打包
   ```shell
   cargo build
   cargo build --release --lib # 打成 lib
-  cargo build --release --bin jjb-builder # 打成可执行文件
+  cargo build --release --bin server # 打成可执行文件
   ```
 
-# 运行项目
+## 运行项目
   ```shell
   cargo run
   ```
 
-# 交叉编译
+## 交叉编译
  前提: `brew install mingw-w64`。
 
  - windows
@@ -64,12 +64,12 @@
   cargo build --release --target x86_64-unknown-linux-gnu --bin jjb-builder
  ```
 
-# 打成 lib
+## 打成 lib
   ```shell
   cargo build --release --lib --target x86_64-pc-windows-gnu
   ```
 
-# 打包 wasm
+## 打包 wasm
   - 修改 `Cargo.toml`
     添加如下代码:
     ```toml
@@ -108,13 +108,13 @@
         greet('hello')
     })
     ```
-    
-# 生成文档
+
+## 生成文档
   ```shell
   cargo doc # --open 为打开
   ```
 
-# 查看所有依赖
+## 查看所有依赖
   ```shell
   cargo tree
   ```
