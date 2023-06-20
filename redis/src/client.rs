@@ -1,11 +1,12 @@
 //! Redis 连接 - 单个
 //! 集群需要 redis = { version = "0.23.0", features = [ "cluster"] }
 
-use redis::{Client, Commands, Connection, ConnectionInfo, IntoConnectionInfo, RedisConnectionInfo, RedisResult};
+use redis::{Client, Commands, Connection, ConnectionInfo, IntoConnectionInfo, RedisConnectionInfo};
 use std::time::Duration;
 
 pub struct Options {
-    pub url: String,
+    pub host: String,
+    pub port: Option<u32>,
     pub username: Option<String>,
     pub pwd: Option<String>,
     pub db: Option<i64>,
@@ -13,7 +14,8 @@ pub struct Options {
 }
 
 pub struct Redis {
-    url: String,
+    host: String,
+    port: u32,
     username: String,
     pwd: String,
     db: i64,
@@ -24,6 +26,13 @@ impl Redis {
 
     /// 初始化函数
     pub(crate) fn new(opts: Options) -> Redis {
+        // port
+        let mut redis_port = 6379;
+        if let Some(port) = opts.port {
+            redis_port = port;
+        }
+
+
         // username
         let mut redis_username = String::new();
         if let Some(username) = opts.username {
@@ -49,7 +58,8 @@ impl Redis {
         }
 
         return Redis {
-            url: String::from(opts.url),
+            host: String::from(opts.host),
+            port: redis_port,
             username: redis_username,
             pwd: redis_pwd,
             db: redis_db,
@@ -59,18 +69,16 @@ impl Redis {
 
     /// 连接 Redis, 返回 Connection
     pub fn connect(&self) -> Option<Connection> {
-        if self.url.is_empty() {
-            println!("url is empty !");
+        if self.host.is_empty() {
+            println!("host is empty !");
             return None;
         }
 
         let mut redis_url = String::new();
-        if !self.url.starts_with("redis") {
-            redis_url = redis_url + "redis://";
-        }
-
-        redis_url += &self.url;
-        // redis_url += &format!("?db={}?username={}&password={}", self.db, self.username, self.pwd);
+        redis_url = redis_url + "redis://";
+        redis_url += &self.host;
+        redis_url += ":";
+        redis_url += &self.port.to_string();
 
         // 通过 connectionInfo 方式连接
         let mut connection_info: ConnectionInfo = match redis_url.clone().into_connection_info() {
@@ -113,11 +121,52 @@ impl Redis {
     }
 
     /// 根据 key 获取数据
-    pub fn get_data<T: redis::FromRedisValue>(&self, client: &Redis, key: &str) -> RedisResult<T> {
-        if let Some(mut client) = client.connect() {
-            return client.get(key);
-        } else {
-            panic!("client is null .")
+    pub fn get_data<T: redis::FromRedisValue>(&self, connect: &mut Option<Connection>, key: &str) -> Option<T> {
+        if key.is_empty() {
+            println!("key is null .");
+            return None;
+        }
+
+        match connect.as_mut() {
+            None => panic!("client is null ."),
+            Some(connection) => {
+               return match connection.get(key)  {
+                    Ok(value) => Some(value),
+                    Err(error) => {
+                        println!("get key: {} error: {:?}", key, error);
+                        return None;
+                    }
+                };
+            }
+        }
+    }
+
+    /// 设置值
+    pub fn set_data(&self, connect: &mut Option<Connection>, key: &str, value: &str) -> bool {
+        if key.is_empty() {
+            println!("key is null .");
+            return false;
+        }
+
+        if value.is_empty() {
+            println!("value is null .");
+            return false;
+        }
+
+        return match connect.as_mut() {
+            None => {
+                println!("client is null .");
+                return false;
+            },
+            Some(connection) => {
+                match connection.set::<&str, &str, String>(key, value) {
+                    Ok(_) => true,
+                    Err(err) => {
+                        println!("set key: {} error: {:?}", key, err);
+                        return false
+                    }
+                }
+            }
         }
     }
 }

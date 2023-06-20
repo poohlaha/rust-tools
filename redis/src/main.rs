@@ -1,20 +1,22 @@
 //! 连接 redis
 
 mod client;
-
-use redis::RedisResult;
 use client::Redis;
 use client::Options;
 
 fn main() {
    let options = Options {
-      url: "47.113.141.61:6379".to_string(),
+      host: "47.100.222.31".to_string(),
+      port: None,
       username: None,
-      pwd: Some("%ZwpH&mkz1xHrq5KLh".to_string()),
+      pwd: Some("%1ZwpH3kzxHrq3KLh".to_string()),
       db: Some(0),
       timeout: None,
    };
    let client = Redis::new(options);
-   let result: RedisResult<String> = client.get_data(&client, "test");
-   print!("result: {:#?}", result);
+   let mut connection = client.connect();
+   client.set_data(&mut connection, "hello", "test-23456");
+   let result: Option<String> = client.get_data(&mut connection, "hello");
+   print!("result: {:#?}", result.unwrap());
 }
+
