@@ -124,8 +124,54 @@
   cargo run > output.txt
   ```
 
-# 错误
+## 错误
   - Blocking waiting for file lock on package cache
   ```shell
     rm -rf ~/.cargo/.package-cache
   ```
+
+## 集成 `Nodejs`
+   使用 `napi` 生成 `.node` 文件。
+   - 修改项目为 `lib`
+     修改项目输出为 `lib.rs`。
+
+   - 修改 `Cargo.toml` 文件
+   ```toml
+   [lib]
+    crate-type = ["cdylib"]
+    
+    [dependencies]
+    napi = "2"
+    napi-derive = "2"
+    
+    [build-dependencies]
+    napi-build = "1"
+   ```
+   - 在项目根目录添加 `build.rs` 文件
+   ```rust
+    // build.rs
+    extern crate napi_build;
+    
+    fn main() {
+        napi_build::setup();
+    }
+   ```
+
+   - 添加 `package.json` 文件
+   ```json
+    {
+      "package": "some-module",
+      "devDependencies": {
+        "@napi-rs/cli": "^1.0.0"
+      },
+      "napi": {
+        "name": "module"
+      },
+      "scripts": {
+        "build": "napi build --release",
+        "build:debug": "napi build"
+      }
+    }
+   ```
+   - 生成 `.node` 文件
+     运行 `npm run build` 或 `npm run build:debug`。
