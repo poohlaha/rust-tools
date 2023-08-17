@@ -11,10 +11,10 @@ mod tests {
    #[test]
    fn test_redis() {
       let options = Options {
-         host: "47.100.222.31".to_string(),
+         host: "47.230.232.31".to_string(),
          port: None,
          username: None,
-         pwd: Some("%1ZwpH3kzxHrq3KLh".to_string()),
+         pwd: Some("%1ZwpH3kzxHdrq3KLh".to_string()),
          db: Some(0),
          timeout: None,
       };
