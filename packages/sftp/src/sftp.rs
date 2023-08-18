@@ -60,7 +60,7 @@ impl Sftp {
                 Some(tcp)
             },
             Err(err) => {
-                println!("{} connect to {} error: {:#?}", LOGGER_PREFIX.cyan().bold(), address.clone().magenta().bold(), err);
+                println!("{} connect to {} error: {:#?}", LOGGER_PREFIX.cyan().bold(), address.clone().red().bold(), err);
                 None
             }
         };
@@ -97,7 +97,7 @@ impl Sftp {
             println!("{} authentication server: {} failed !", LOGGER_PREFIX.cyan().bold(), address.clone().red().bold());
         }
 
-        println!("{} connect {} success !", LOGGER_PREFIX.cyan().bold(), address);
+        println!("{} connect {} success !", LOGGER_PREFIX.cyan().bold(), address.clone().magenta().bold());
 
         // 处理文件上传
         let mut success = false;
@@ -128,7 +128,7 @@ impl Sftp {
         }
 
         // 删除本地目录
-        println!("{} begin to delete upload dir: {}", LOGGER_PREFIX.cyan().bold(), &self.upload.dir.magenta().bold());
+        println!("{} begin to {} upload dir: {}", LOGGER_PREFIX.cyan().bold(), "delete".red().bold(), &self.upload.dir.green().bold());
         let flag = match fs::remove_dir_all(&self.upload.dir) {
             Ok(_) => flag,
             Err(err) => {
@@ -138,7 +138,7 @@ impl Sftp {
         };
 
         if flag {
-            println!("{} delete upload dir {} success !", LOGGER_PREFIX.cyan().bold(), &self.upload.dir.magenta().bold());
+            println!("{} {} upload dir {} success !", LOGGER_PREFIX.cyan().bold(), "delete".red().bold(), &self.upload.dir.green().bold());
         }
 
         return flag;
@@ -197,7 +197,7 @@ impl Sftp {
         let sftp = sftp.unwrap();
         let server_dir = &upload.server_dir;
         let server_file = format!("{}{}", server_dir, server_zip_file_name);
-        println!("{} server file path: {}", LOGGER_PREFIX.cyan().bold(), server_file);
+        println!("{} server file path: {}", LOGGER_PREFIX.cyan().bold(), server_file.clone().green().bold());
 
         // 创建远程文件
         let remote_file = match sftp.create(Path::new(&server_file)) {
@@ -215,7 +215,7 @@ impl Sftp {
 
         let mut remote_file = remote_file.unwrap();
 
-        println!("{} uploading file: {}", LOGGER_PREFIX.cyan().bold(), local_file_path.clone().magenta().bold());
+        println!("{} uploading file: {}", LOGGER_PREFIX.cyan().bold(), local_file_path.clone().green().bold());
 
         // 进行 process bar
         let pb = ProgressBar::new_spinner();
@@ -254,7 +254,7 @@ impl Sftp {
 
         pb.finish_with_message("Upload Success !");
 
-        println!("{} upload file success, file path: {}", LOGGER_PREFIX.cyan().bold(), server_file.clone().magenta().bold());
+        println!("{} upload file success, file path: {}", LOGGER_PREFIX.cyan().bold(), server_file.clone().green().bold());
 
         // 解压 zip 包, 删除原来目录，用新的目录覆盖
         return self.uncompress(session, &sftp, server_file_name, server_zip_file_name, upload);
@@ -277,9 +277,9 @@ impl Sftp {
 
         let entries = entries.unwrap();
         for (path, file_stat) in entries.iter() {
-           if file_stat.is_dir() {
-               directories.push(path.to_string_lossy().to_string());
-           }
+            if file_stat.is_dir() {
+                directories.push(path.to_string_lossy().to_string());
+            }
         }
 
         return directories
@@ -288,7 +288,7 @@ impl Sftp {
     /// 解压 zip 包, 删除原来目录，用新的目录覆盖
     fn uncompress(&self, session: &Session, sftp: &ssh2::Sftp, server_file_name: &str, server_zip_file_name: &str, upload: &Upload) -> bool {
         let server_dir = &upload.server_dir;
-        println!("{} begin to unzip {} ...", LOGGER_PREFIX.cyan().bold(), format!("{}{}", server_dir, server_zip_file_name).magenta().bold());
+        println!("{} begin to unzip {} ...", LOGGER_PREFIX.cyan().bold(), format!("{}{}", server_dir, server_zip_file_name).green().bold());
 
         // 解压
         let server_zip_file_stem: &str = Path::new(server_zip_file_name).file_stem().unwrap().to_str().unwrap_or(""); // 文件前缀
@@ -314,9 +314,9 @@ impl Sftp {
             return false;
         }
 
-        println!("{} unzip {} success !", LOGGER_PREFIX.cyan().bold(), format!("{}{}", server_dir, server_zip_file_name).magenta().bold());
+        println!("{} unzip {} success !", LOGGER_PREFIX.cyan().bold(), format!("{}{}", server_dir, server_zip_file_name).green().bold());
 
-        println!("{} begin to publishing version ...", LOGGER_PREFIX.cyan().bold());
+        println!("{} begin to {} version ...", LOGGER_PREFIX.cyan().bold(), "publishing".green().bold());
         // 删除原来的项目, 更改解压后的目录为原来目录
         let mut commands: Vec<String> = vec![
             format!("cd {}", server_dir), // cd 到服务器目录
@@ -344,7 +344,7 @@ impl Sftp {
             println!("{} publish version failed ...", LOGGER_PREFIX.red().bold());
         }
 
-        println!("{} publish version success ...", LOGGER_PREFIX.cyan().bold());
+        println!("{} {} ...", LOGGER_PREFIX.cyan().bold(), "publish version success".green().bold());
         return success
     }
 
@@ -381,7 +381,7 @@ impl Sftp {
             return (String::new(), String::new());
         }
 
-        println!("{} get the file name: {}", LOGGER_PREFIX.cyan().bold(), server_file_name.magenta().bold());
+        println!("{} get the file name: {}", LOGGER_PREFIX.cyan().bold(), server_file_name.green().bold());
 
         // 文件名重新生成
         let date: String = Local::now().format("%Y%m%d%H%M%S").to_string(); // 生成时间
@@ -396,7 +396,7 @@ impl Sftp {
             server_zip_file_name = String::from(server_file_stem) + "-" + &date + "." + extension;
         }
 
-        println!("{} get the server file name: {}", LOGGER_PREFIX.cyan().bold(), server_zip_file_name.magenta().bold());
+        println!("{} get the server file name: {}", LOGGER_PREFIX.cyan().bold(), server_zip_file_name.green().bold());
 
         // 如果以 zip 结尾
         if extension.ends_with("zip") {
@@ -521,7 +521,7 @@ impl Sftp {
         // 判断上传目录下是文件还是目录, 如果是目录则压缩目录下的文件为 zip
         let mut path = PathBuf::from(upload_dir);
         if !path.is_dir() {
-           return false;
+            return false;
         }
 
         // 判断目录下是否有 server_file_name 的文件夹
@@ -610,11 +610,11 @@ impl Sftp {
 
         let mut channel = channel.unwrap();
         let command = cmds.join(" \n ");
-        println!("{} exec shell:\n {}", LOGGER_PREFIX.cyan().bold(), command.magenta().bold());
+        println!("{} exec shell:\n {}", LOGGER_PREFIX.cyan().bold(), command.green().bold());
 
         let flag = match channel.exec(&command) {
             Ok(_) => {
-                println!("{} exec command success", LOGGER_PREFIX.cyan().bold());
+                println!("{} {}", LOGGER_PREFIX.cyan().bold(), "exec command success".magenta().bold());
                 true
             },
             Err(err) => {

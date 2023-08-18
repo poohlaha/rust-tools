@@ -26,14 +26,14 @@ impl Utils {
         // windows 通过 cmd /C 执行多条命令: cd c:\\usr\\local\\nginx\\sbin/ && nginx
         #[cfg(target_os = "windows")]
         {
-            println!("{} exec command:\n {}", LOGGER_PREFIX.cyan().bold(), _command.magenta().bold());
+            println!("{} exec command:\n {}", LOGGER_PREFIX.cyan().bold(), _command.green().bold());
             output = Command::new("cmd").args(&["/C", &_command]).output();
         }
 
         // linux|macos 通过 shell -c 执行多条命令: cd /usr/local/nginx/sbin/\n./nginx
         #[cfg(target_os = "macos")]
         {
-            println!("{} exec command:\n {}", LOGGER_PREFIX.cyan().bold(), command.magenta().bold());
+            println!("{} exec command:\n {}", LOGGER_PREFIX.cyan().bold(), command.green().bold());
             output = Command::new("sh")
                 .arg("-c")
                 .arg(command)
@@ -42,7 +42,7 @@ impl Utils {
 
         #[cfg(target_os = "linux")]
         {
-            println!("{} exec command:\n {}", LOGGER_PREFIX.cyan().bold(), command.magenta().bold());
+            println!("{} exec command:\n {}", LOGGER_PREFIX.cyan().bold(), command.green().bold());
             output = Command::new("sh")
                 .arg("-c")
                 .arg(command)
