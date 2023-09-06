@@ -3,12 +3,14 @@
 use serde_json::Value;
 use serde::{Serialize, Deserialize};
 use std::collections::HashMap;
+use reqwest::blocking::multipart::Form;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Debug)]
 pub struct Options {
     pub url: String, // url
     pub method: Option<String>, // method: post、get
     pub data: Option<Value>, // data
+    pub form: Option<Form>, // form
     pub headers: Option<Value> // headers
 }
 

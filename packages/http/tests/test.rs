@@ -12,10 +12,11 @@ fn test_http_get() {
         let options = Options {
             url,
             data: None,
+            form: None,
             method: Some("get".to_string()),
             headers: None,
         };
-        let response: HttpResponse = HttpClient::send(options).await;
+        let response: HttpResponse = HttpClient::send(options, false).await;
         assert_eq!(response.status_code, 200);
     });
 }
@@ -36,10 +37,30 @@ fn test_http_post() {
         let options = Options {
             url,
             data: Some(data),
+            form: None,
             method: None,
             headers: None,
         };
-        let response: HttpResponse = HttpClient::send(options).await;
+        let response: HttpResponse = HttpClient::send(options, false).await;
         assert_eq!(response.status_code, 200);
     });
+}
+
+#[test]
+fn test_http_form_data() {
+    let url = String::from("http://example.com/api/upload");
+    let form = reqwest::blocking::multipart::Form::new()
+        .text("userId", "10074")
+        .text("version", "1.0")
+        .file("files", "/usr/local/text.zip").unwrap();
+
+    let options = Options {
+        url,
+        data: None,
+        form: Some(form),
+        method: None,
+        headers: None,
+    };
+    let response: HttpResponse = HttpClient::send_form_data(options);
+    assert_eq!(response.status_code, 200);
 }
