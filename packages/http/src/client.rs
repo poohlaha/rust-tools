@@ -104,16 +104,16 @@ impl HttpClient {
             }
         }
 
-        match request.headers(request_headers).send().await {
+        return match request.headers(request_headers).send().await {
             Ok(response) => {
                 let status = response.status();
                 let response_headers = response.headers().clone();
                 let body = response.text().await.unwrap_or("".to_string());
-                return HttpClient::get_response(status, response_headers, body);
+                HttpClient::get_response(status, response_headers, body)
             }
             Err(error) => {
                 println!("send request error: {}", error);
-                return Self::get_error_response(500, &error);
+                Self::get_error_response(500, &error)
             }
         };
     }
@@ -141,10 +141,7 @@ impl HttpClient {
 
         // headers
         let mut request_headers = HeaderMap::new();
-        let headers = Self::get_headers(options.headers, false, true);
-        for (name, value) in headers.iter() {
-            request_headers.insert(&HeaderName::from_bytes(name.as_bytes()).unwrap(), value.as_str().parse().unwrap());
-        }
+        request_headers.insert(&HeaderName::from_bytes("accept".as_bytes()).unwrap(), "*/*".parse().unwrap());
 
         println!("headers: {:?}", request_headers);
 
@@ -153,16 +150,16 @@ impl HttpClient {
             request = request.multipart(form);
         }
 
-        match request.headers(request_headers).send() {
+        return match request.headers(request_headers).send() {
             Ok(response) => {
                 let status = response.status();
                 let response_headers = response.headers().clone();
                 let body = response.text().unwrap_or("".to_string());
-                return HttpClient::get_response(status, response_headers, body);
+                HttpClient::get_response(status, response_headers, body)
             }
             Err(error) => {
                 println!("send request error: {}", error);
-                return Self::get_error_response(500, &error);
+                Self::get_error_response(500, &error)
             }
         };
     }
