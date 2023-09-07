@@ -104,7 +104,7 @@ impl HttpClient {
             }
         }
 
-        match request.send().await {
+        match request.headers(request_headers).send().await {
             Ok(response) => {
                 let status = response.status();
                 let response_headers = response.headers().clone();
@@ -153,7 +153,7 @@ impl HttpClient {
             request = request.multipart(form);
         }
 
-        match request.send() {
+        match request.headers(request_headers).send() {
             Ok(response) => {
                 let status = response.status();
                 let response_headers = response.headers().clone();
