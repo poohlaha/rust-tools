@@ -31,6 +31,7 @@ pub struct CompressorArgs {
 }
 
 struct CompressorFile {
+    #[allow(dead_code)]
     file_name: String, // 文件名
     extension: String, // 后缀
     path: String, // 全路径
@@ -120,7 +121,7 @@ impl Compressor {
             let arc_args = Arc::new(Compressor {
                 factor: self.factor.clone(),
                 original_path: self.original_path.clone(),
-                destination_path: self.original_path.clone(),
+                destination_path: self.destination_path.clone(),
                 thread_count: self.thread_count.clone(),
                 need_convert_format: self.need_convert_format
             });
@@ -148,43 +149,17 @@ fn process(queue: Arc<SegQueue<CompressorFile>>, compressor: &Compressor) {
         match queue.pop() {
             None => break,
             Some(file) => {
-                let file_name = &file.file_name;
                 let file_path = PathBuf::from(&file.path);
-                let parent = match file_path.parent() {
-                    Some(p) => match p.strip_prefix(&compressor.original_path) {
-                        Ok(p) => p,
-                        Err(_) => {
-                            println!("{} Cannot strip the prefix of file {}", LOGGER_PREFIX.cyan().bold(), file_name.red().bold());
-                            continue;
-                        }
-                    },
-                    None => {
-                        println!("{} Cannot find the parent directory of file {}", LOGGER_PREFIX.cyan().bold(), file_name.red().bold());
-                        continue;
-                    }
-                };
-
-                let new_dest_dir = &compressor.destination_path.join(parent);
-                if !new_dest_dir.is_dir() {
-                    match fs::create_dir_all(&new_dest_dir) {
-                        Ok(_) => {}
-                        Err(_) => {
-                            println!("{} Cannot create the parent directory of file {}", LOGGER_PREFIX.cyan().bold(), file_name.red().bold());
-                            continue;
-                        }
-                    };
-                }
-
-                compress(&file_path, &new_dest_dir, &file, compressor);
+                let new_dest_path = &compressor.destination_path.join(&file.relative_path);
+                compress(&file_path, &new_dest_path, &file, compressor);
             }
         }
     }
 }
 
 /// 转换
-fn compress(origin_file_path: &PathBuf, target_dir: &PathBuf, file: &CompressorFile, compressor: &Compressor) -> bool {
+fn compress(origin_file_path: &PathBuf, dest_file_path: &PathBuf, file: &CompressorFile, compressor: &Compressor) -> bool {
     let factor = &compressor.factor;
-    let file_name = &file.file_name;
     let file_relative_path = &file.relative_path;
     let extension = &file.extension;
     let need_convert_format = compressor.need_convert_format;
@@ -205,36 +180,62 @@ fn compress(origin_file_path: &PathBuf, target_dir: &PathBuf, file: &CompressorF
 
     let compressed_img_data = compressed_img_data.unwrap();
 
-    let mut dest_file_path = target_dir.clone();
-    dest_file_path.push(file_name);
+    let parent = match dest_file_path.parent()  {
+        Some(parent) => Some(parent),
+        None => None
+    };
 
-    if let Ok(mut output_file) =  File::create(dest_file_path.clone()) {
-        if need_convert_format {
-            if extension == "png" {
-                let img = image::load_from_memory(&compressed_img_data).unwrap();
-                return match img.save_with_format(dest_file_path.clone().as_path(), image::ImageFormat::Png) {
-                    Ok(_) => true,
-                    Err(err) => {
-                        println!("{} convert to origin format error: {:#?}", LOGGER_PREFIX.cyan().bold(), err);
-                        false
-                    }
-                }
-            }
+    if parent.is_none() {
+        println!("get file path: {} parent error!", dest_file_path.as_path().to_string_lossy().to_string());
+        return false;
+    }
+
+    let success = match fs::create_dir_all(parent.unwrap()) {
+        Ok(_) => true,
+        Err(err) => {
+            println!("create file path: {} error: {}", dest_file_path.as_path().to_string_lossy().to_string(), err);
+            false
         }
+    };
 
-        return match output_file.write_all(&compressed_img_data) {
-            Ok(_) => {
-                println!("{} compress file: {} success !", LOGGER_PREFIX.cyan().bold(), file_relative_path.red().bold());
-                true
-            }
-            Err(err) => {
-                println!("{} compress file: {} error: {:#?}", LOGGER_PREFIX.cyan().bold(), file_relative_path.red().bold(), err);
-                false
+    if !success {
+        return false;
+    }
+
+    let output_file = match File::create(dest_file_path.clone()) {
+        Ok(file) => Some(file),
+        Err(err) => {
+            println!("{} create file path: {} error: {:#?}", LOGGER_PREFIX.cyan().bold(), dest_file_path.as_path().to_string_lossy().to_string(), err);
+            None
+        }
+    };
+
+    if output_file.is_none() {
+        return false;
+    }
+
+    let mut output_file = output_file.unwrap();
+    if need_convert_format {
+        if extension == "png" {
+            let img = image::load_from_memory(&compressed_img_data).unwrap();
+            return match img.save_with_format(dest_file_path.clone().as_path(), image::ImageFormat::Png) {
+                Ok(_) => true,
+                Err(err) => {
+                    println!("{} convert to origin format error: {:#?}", LOGGER_PREFIX.cyan().bold(), err);
+                    false
+                }
             }
         }
     }
 
-    println!("{} compress file: {} error: !", LOGGER_PREFIX.cyan().bold(), file_relative_path.red().bold());
-    return false;
-
+    return match output_file.write_all(&compressed_img_data) {
+        Ok(_) => {
+            println!("{} compress file: {} success !", LOGGER_PREFIX.cyan().bold(), file_relative_path.red().bold());
+            true
+        }
+        Err(err) => {
+            println!("{} compress file: {} error: {:#?}", LOGGER_PREFIX.cyan().bold(), file_relative_path.red().bold(), err);
+            false
+        }
+    };
 }

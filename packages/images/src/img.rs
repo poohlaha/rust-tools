@@ -108,7 +108,6 @@ impl Img {
         comp.set_optimize_scans(true);
         comp.start_compress();
 
-
         let mut line = 0;
         loop {
             if line > target_height - 1 {
