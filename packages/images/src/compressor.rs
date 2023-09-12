@@ -19,7 +19,8 @@ pub struct Compressor {
     original_path: PathBuf,
     destination_path: PathBuf,
     thread_count: u32,
-    need_convert_format: bool
+    need_convert_format: bool,
+    image_size: u64
 }
 
 pub struct CompressorArgs {
@@ -27,7 +28,8 @@ pub struct CompressorArgs {
     pub origin: String,
     pub dest: String,
     pub thread_count: Option<u32>,
-    pub need_convert_format: bool // 是否转换为原来对应的格式, 如果转换会导致图片过大, 默认是转成 jpeg, 只是改了后缀
+    pub need_convert_format: bool, // 是否转换为原来对应的格式, 如果转换会导致图片过大, 默认是转成 jpeg, 只是改了后缀
+    pub image_size: u64, // 要压缩的图片最小值, 默认为 kb
 }
 
 struct CompressorFile {
@@ -50,7 +52,8 @@ impl Compressor {
             original_path: PathBuf::from(args.origin),
             destination_path: PathBuf::from(args.dest),
             thread_count: if factor.is_none() { 1 } else { thread_count.unwrap() },
-            need_convert_format: args.need_convert_format
+            need_convert_format: args.need_convert_format,
+            image_size: args.image_size
         }
     }
 
@@ -64,13 +67,29 @@ impl Compressor {
             } else {
                 let relative_path = path.strip_prefix(&self.original_path).unwrap().to_str().unwrap();
                 let extension = path.extension().unwrap_or(OsStr::new("")).to_str().unwrap_or("");
-                if FILE_LIST.contains(&extension) {
-                    files.push(CompressorFile {
-                        extension: extension.to_string(),
-                        path: path.as_path().to_string_lossy().to_string(),
-                        file_name: path.file_name().unwrap().to_string_lossy().to_string(),
-                        relative_path: relative_path.to_string()
-                    })
+                let size = fs::metadata(&path).unwrap().len();
+                if self.image_size == 0 {
+                    if FILE_LIST.contains(&extension) {
+                        files.push(CompressorFile {
+                            extension: extension.to_string(),
+                            path: path.as_path().to_string_lossy().to_string(),
+                            file_name: path.file_name().unwrap().to_string_lossy().to_string(),
+                            relative_path: relative_path.to_string()
+                        })
+                    }
+
+                    continue
+                }
+
+                if size > self.image_size * 1024 {
+                    if FILE_LIST.contains(&extension) {
+                        files.push(CompressorFile {
+                            extension: extension.to_string(),
+                            path: path.as_path().to_string_lossy().to_string(),
+                            file_name: path.file_name().unwrap().to_string_lossy().to_string(),
+                            relative_path: relative_path.to_string()
+                        })
+                    }
                 }
             }
         }
@@ -123,7 +142,8 @@ impl Compressor {
                 original_path: self.original_path.clone(),
                 destination_path: self.destination_path.clone(),
                 thread_count: self.thread_count.clone(),
-                need_convert_format: self.need_convert_format
+                need_convert_format: self.need_convert_format,
+                image_size: self.image_size
             });
 
             let handle = thread::spawn(move || {
