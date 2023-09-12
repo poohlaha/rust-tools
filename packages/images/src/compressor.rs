@@ -23,6 +23,7 @@ pub struct Compressor {
     image_size: u64
 }
 
+#[derive(Debug)]
 pub struct CompressorArgs {
     pub factor: Option<Factor>,
     pub origin: String,
@@ -117,13 +118,17 @@ impl Compressor {
 
         // 删除目录文件
         let dest_dir = &self.destination_path;
-        // 不存在则创建, 存在则清空
-        match dir::create(dest_dir, true) {
-            Ok(_) => {}
-            Err(err) => {
-                let err_msg = format!("operate dest dir: {}, error", dest_dir.as_path().to_string_lossy().to_string());
-                println!("{} operate dest dir: {} error: {:#?}", LOGGER_PREFIX.cyan().bold(), dest_dir.as_path().to_string_lossy().to_string().magenta().bold(), err);
-                panic!("{}", err_msg)
+        // 判断 origin 和 dest 目录是否相等, 如果不相等则清空 dest 目录
+        if dest_dir != &self.original_path {
+            println!("{} clear dest dir: {}", LOGGER_PREFIX.cyan().bold(), dest_dir.as_path().to_string_lossy().to_string().red().bold());
+            // 不存在则创建, 存在则清空
+            match dir::create(dest_dir, true) {
+                Ok(_) => {}
+                Err(err) => {
+                    let err_msg = format!("operate dest dir: {}, error", dest_dir.as_path().to_string_lossy().to_string());
+                    println!("{} operate dest dir: {} error: {:#?}", LOGGER_PREFIX.cyan().bold(), dest_dir.as_path().to_string_lossy().to_string().magenta().bold(), err);
+                    panic!("{}", err_msg)
+                }
             }
         }
 

@@ -3,7 +3,7 @@
 use colored::*;
 use crate::LOGGER_PREFIX;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Factor {
     pub quality: f32, // 品质: 0 - 100
     pub size_ratio: f32, // 压缩比例: 0 - 1
