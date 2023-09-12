@@ -5,8 +5,8 @@ use crate::LOGGER_PREFIX;
 
 #[derive(Clone)]
 pub struct Factor {
-    quality: f32, // 品质: 0 - 100
-    size_ratio: f32, // 压缩比例: 0 -1
+    pub quality: f32, // 品质: 0 - 100
+    pub size_ratio: f32, // 压缩比例: 0 - 1
 }
 
 impl Factor {
