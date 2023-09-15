@@ -361,7 +361,8 @@ impl Img {
             }
         } else {
             // 移动文件
-            let options = fs_extra::file::CopyOptions::new();
+            let mut options = fs_extra::file::CopyOptions::new();
+            options = options.overwrite(true);
             success = match fs_extra::file::move_file(dest_tmp_file_path.as_path().to_string_lossy().to_string(), dest_file_path.as_path().to_string_lossy().to_string(), &options) {
                 Ok(_) => {
                     println!("{} compress `{}` file: {} success !", LOGGER_PREFIX.cyan().bold(), name.cyan().bold(), &file.relative_path.cyan().bold());
