@@ -2,10 +2,8 @@
 
 use std::ffi::OsStr;
 use std::{fs, thread};
-use std::io::{Write};
 use std::path::{PathBuf};
 use std::sync::{Arc};
-use fs::File;
 use std::time::Instant;
 use crossbeam_queue::SegQueue;
 use crate::factor::Factor;
@@ -15,12 +13,11 @@ use colored::*;
 use crate::LOGGER_PREFIX;
 
 pub struct Compressor {
-    factor: Factor,
-    original_path: PathBuf,
-    destination_path: PathBuf,
-    thread_count: u32,
-    need_convert_format: bool,
-    image_size: u64
+    pub factor: Factor,
+    pub original_path: PathBuf,
+    pub destination_path: PathBuf,
+    pub thread_count: u32,
+    pub image_size: u64
 }
 
 #[derive(Debug)]
@@ -29,16 +26,16 @@ pub struct CompressorArgs {
     pub origin: String,
     pub dest: String,
     pub thread_count: Option<u32>,
-    pub need_convert_format: bool, // 是否转换为原来对应的格式, 如果转换会导致图片过大, 默认是转成 jpeg, 只是改了后缀
     pub image_size: u64, // 要压缩的图片最小值, 默认为 kb
 }
 
-struct CompressorFile {
-    #[allow(dead_code)]
-    file_name: String, // 文件名
-    extension: String, // 后缀
-    path: String, // 全路径
-    relative_path: String, // 相对路径
+pub struct CompressorFile {
+    pub file_name: String, // 文件名
+    pub extension: String, // 后缀
+    pub file_stem: String, // 后缀
+    pub file_size: u64, // 文件大小
+    pub path: String, // 全路径
+    pub relative_path: String, // 相对路径
 }
 
 const FILE_LIST: [&str; 3] = ["jpg", "jpeg", "png"];
@@ -53,7 +50,6 @@ impl Compressor {
             original_path: PathBuf::from(args.origin),
             destination_path: PathBuf::from(args.dest),
             thread_count: if factor.is_none() { 1 } else { thread_count.unwrap() },
-            need_convert_format: args.need_convert_format,
             image_size: args.image_size
         }
     }
@@ -67,14 +63,19 @@ impl Compressor {
                 self.get_origin_file_list(&path, files)
             } else {
                 let relative_path = path.strip_prefix(&self.original_path).unwrap().to_str().unwrap();
+                let file_name = path.file_name().unwrap().to_string_lossy().to_string();
+                // let file_stem = PathBuf::from(file_name.clone()).file_stem().unwrap().to_str().unwrap_or(""); // 文件前缀
                 let extension = path.extension().unwrap_or(OsStr::new("")).to_str().unwrap_or("");
+                let file_stem = file_name.clone().replace(&format!(".{}", extension), "");
                 let size = fs::metadata(&path).unwrap().len();
                 if self.image_size == 0 {
                     if FILE_LIST.contains(&extension) {
                         files.push(CompressorFile {
                             extension: extension.to_string(),
                             path: path.as_path().to_string_lossy().to_string(),
-                            file_name: path.file_name().unwrap().to_string_lossy().to_string(),
+                            file_name: file_name.clone(),
+                            file_stem: file_stem.to_string(),
+                            file_size: size,
                             relative_path: relative_path.to_string()
                         })
                     }
@@ -87,7 +88,9 @@ impl Compressor {
                         files.push(CompressorFile {
                             extension: extension.to_string(),
                             path: path.as_path().to_string_lossy().to_string(),
-                            file_name: path.file_name().unwrap().to_string_lossy().to_string(),
+                            file_name,
+                            file_stem: file_stem.to_string(),
+                            file_size: size,
                             relative_path: relative_path.to_string()
                         })
                     }
@@ -147,7 +150,6 @@ impl Compressor {
                 original_path: self.original_path.clone(),
                 destination_path: self.destination_path.clone(),
                 thread_count: self.thread_count.clone(),
-                need_convert_format: self.need_convert_format,
                 image_size: self.image_size
             });
 
@@ -176,34 +178,24 @@ fn process(queue: Arc<SegQueue<CompressorFile>>, compressor: &Compressor) {
             Some(file) => {
                 let file_path = PathBuf::from(&file.path);
                 let new_dest_path = &compressor.destination_path.join(&file.relative_path);
-                compress(&file_path, &new_dest_path, &file, compressor);
+
+                // 获取临时文件
+                let file_stem = &file.file_stem;
+                let temp_file_name = String::from(file_stem) + "_tmp." + &file.extension;
+                let tmp_relative_path = &file.relative_path.replace(&file.file_name, &temp_file_name);
+                let new_dest_tmp_file_path =  &compressor.destination_path.join(tmp_relative_path);
+
+                compress(&file_path, &new_dest_path, &new_dest_tmp_file_path, &file, compressor);
             }
         }
     }
 }
 
 /// 转换
-fn compress(origin_file_path: &PathBuf, dest_file_path: &PathBuf, file: &CompressorFile, compressor: &Compressor) -> bool {
+fn compress(origin_file_path: &PathBuf, dest_file_path: &PathBuf, dest_tmp_file_path: &PathBuf, file: &CompressorFile, compressor: &Compressor) -> bool {
     let factor = &compressor.factor;
     let file_relative_path = &file.relative_path;
     let extension = &file.extension;
-    let need_convert_format = compressor.need_convert_format;
-    let img = Img::resize(origin_file_path, factor.size_ratio());
-    if img.is_none() {
-        return false;
-    }
-
-    let img = img.unwrap();
-    let compressed_img_data = Img::compress(img, factor.quality());
-    if compressed_img_data.is_none() {
-        return false;
-    }
-
-    if compressed_img_data.is_none() {
-        return false;
-    }
-
-    let compressed_img_data = compressed_img_data.unwrap();
 
     let parent = match dest_file_path.parent()  {
         Some(parent) => Some(parent),
@@ -227,40 +219,21 @@ fn compress(origin_file_path: &PathBuf, dest_file_path: &PathBuf, file: &Compres
         return false;
     }
 
-    let output_file = match File::create(dest_file_path.clone()) {
-        Ok(file) => Some(file),
-        Err(err) => {
-            println!("{} create file path: {} error: {:#?}", LOGGER_PREFIX.cyan().bold(), dest_file_path.as_path().to_string_lossy().to_string(), err);
-            None
-        }
-    };
+    // println!("{} generate image path: {}", LOGGER_PREFIX.cyan().bold(), dest_file_path.as_path().to_string_lossy().to_string());
+    // println!("{} generate tmp image path: {}", LOGGER_PREFIX.cyan().bold(), dest_tmp_file_path.as_path().to_string_lossy().to_string());
 
-    if output_file.is_none() {
+    let img_resize = Img::resize(origin_file_path, factor.size_ratio());
+    if img_resize.is_none() {
         return false;
     }
 
-    let mut output_file = output_file.unwrap();
-    if need_convert_format {
-        if extension == "png" {
-            let img = image::load_from_memory(&compressed_img_data).unwrap();
-            return match img.save_with_format(dest_file_path.clone().as_path(), image::ImageFormat::Png) {
-                Ok(_) => true,
-                Err(err) => {
-                    println!("{} convert to origin format error: {:#?}", LOGGER_PREFIX.cyan().bold(), err);
-                    false
-                }
-            }
-        }
+    let img_resize = img_resize.unwrap();
+    if extension == "png" {
+        let is_same_dir = &compressor.original_path.as_path().to_string_lossy().to_string() == &compressor.destination_path.as_path().to_string_lossy().to_string();
+        Img::compress_png(origin_file_path, factor.quality(), dest_file_path, dest_tmp_file_path, file, is_same_dir);
+    } else {
+        Img::compress_jpg(img_resize, factor.quality(), dest_file_path, file_relative_path);
     }
 
-    return match output_file.write_all(&compressed_img_data) {
-        Ok(_) => {
-            println!("{} compress file: {} success !", LOGGER_PREFIX.cyan().bold(), file_relative_path.red().bold());
-            true
-        }
-        Err(err) => {
-            println!("{} compress file: {} error: {:#?}", LOGGER_PREFIX.cyan().bold(), file_relative_path.red().bold(), err);
-            false
-        }
-    };
+    return true;
 }
