@@ -5,6 +5,7 @@ use std::fs::File;
 use std::io::Write;
 use colored::*;
 use std::path::{PathBuf};
+use gif::{DecodingError, EncodingError, Frame};
 use image::imageops::FilterType;
 use imagequant::{Attributes};
 use lodepng::decode32_file;
@@ -230,19 +231,112 @@ impl Img {
             return false;
         }
 
+        return Img::validate_image(dest_tmp_file_path, dest_file_path, file, is_same_dir, "PNG");
+    }
+
+    /// 压缩 gif
+    pub fn compress_gif(file_path: &PathBuf, quality: f32, dest_file_path: &PathBuf, dest_tmp_file_path: &PathBuf, file: &CompressorFile, is_same_dir: bool) -> bool {
+        let img = match File::open(file_path) {
+            Ok(img) => Some(img),
+            Err(err) => {
+                println!("{} open `GIF` image: {} error: {:#?}", LOGGER_PREFIX.cyan().bold(), file_path.as_path().to_string_lossy().to_string().red().bold(), err);
+                None
+            }
+        };
+
+        if img.is_none() {
+            return false;
+        }
+
+        let img = img.unwrap();
+        let mut options = gif::DecodeOptions::new();
+        options.set_color_output(gif::ColorOutput::Indexed);
+
+        let decoder = match options.read_info(img) {
+            Ok(decoder) => Some(decoder),
+            Err(err) => {
+                println!("{} regenerate `GIF` image: {} error: {:#?}", LOGGER_PREFIX.cyan().bold(), &file.relative_path.red().bold(), err);
+                None
+            }
+        };
+
+        if decoder.is_none() {
+            return false;
+        }
+
+        let mut decoder = decoder.unwrap();
+        let screen_width = decoder.width();
+        let screen_height = decoder.height();
+        let global_pal = decoder.global_palette().unwrap_or_default().to_vec();
+
+        let mut output_file = File::create(dest_tmp_file_path).unwrap();
+        let encoder = match gif::Encoder::new(&mut output_file, screen_width, screen_height, &global_pal) {
+            Ok(encoder) => Some(encoder),
+            Err(err) => {
+                println!("{} regenerate `GIF` image: {} error: {:#?}", LOGGER_PREFIX.cyan().bold(), &file.relative_path.red().bold(), err);
+                None
+            }
+        };
+
+        if encoder.is_none() {
+            return false;
+        }
+
+        let mut encoder = encoder.unwrap();
+        let mut frame_number = 1;
+        while let Some(frame) = decoder.read_next_frame().unwrap() {
+            // 减少帧数（每隔一帧写一个帧）
+            if frame_number % 2 == 0 {
+                frame_number += 1;
+                continue;
+            }
+
+            let mut new_frame = gif::Frame::default();
+            new_frame.delay = frame.delay + 1; // 设置帧间隔（以1/100秒为单位），根据需要调整
+            new_frame.width = frame.width;
+            new_frame.height = frame.height;
+            new_frame.dispose = frame.dispose;
+            new_frame.transparent = frame.transparent;
+            new_frame.needs_user_input = frame.needs_user_input;
+            new_frame.top = frame.top;
+            new_frame.left = frame.left;
+            new_frame.interlaced = frame.interlaced;
+            new_frame.palette = frame.palette.clone();
+            new_frame.buffer = frame.buffer.clone();
+
+            let success = match encoder.write_frame(&new_frame) {
+                Ok(_) => true,
+                Err(err) => {
+                    println!("{} regenerate `GIF` image: {} error: {:#?}", LOGGER_PREFIX.cyan().bold(), &file.relative_path.red().bold(), err);
+                    false
+                }
+            };
+
+            if !success {
+                return false;
+            }
+
+            frame_number += 1;
+        }
+
+        return Img::validate_image(dest_tmp_file_path, dest_file_path, file, is_same_dir, "GIF");
+    }
+
+    /// 校验图片, 判断压缩后图片是不是大于原图片, 如果大于, 则取消压缩
+    fn validate_image(dest_tmp_file_path: &PathBuf, dest_file_path: &PathBuf, file: &CompressorFile, is_same_dir: bool, name: &str) -> bool {
         // 判断压缩后图片是不是大于原图片, 如果大于, 则取消压缩
         let tmp_file_size = fs::metadata(dest_tmp_file_path).unwrap().len();
         let success;
         if tmp_file_size >= file.file_size {
-            println!("{} regenerate `PNG` file size: {} bytes, big", LOGGER_PREFIX.cyan().bold(), tmp_file_size.to_string().red().bold());
+            println!("{} regenerate `{}` file size: {} bytes, big", LOGGER_PREFIX.cyan().bold(), name.cyan().bold(), tmp_file_size.to_string().red().bold());
             // 删除临时文件
             let is_ok = match fs_extra::file::remove(dest_tmp_file_path.as_path().to_string_lossy().to_string()) {
                 Ok(_) => {
-                    println!("{} compress `PNG` file: {} success !", LOGGER_PREFIX.cyan().bold(), &file.relative_path.cyan().bold());
+                    println!("{} compress `{}` file: {} success !", LOGGER_PREFIX.cyan().bold(), name.cyan().bold(), &file.relative_path.cyan().bold());
                     true
                 },
                 Err(err) => {
-                    println!("{} regenerate `PNG` image: {} error: {:#?}", LOGGER_PREFIX.cyan().bold(), &file.relative_path.red().bold(), err);
+                    println!("{} regenerate `{}` image: {} error: {:#?}", LOGGER_PREFIX.cyan().bold(), name.cyan().bold(), &file.relative_path.red().bold(), err);
                     false
                 }
             };
@@ -255,11 +349,11 @@ impl Img {
             if !is_same_dir {
                 success = match fs_extra::file::copy(&file.path, dest_file_path.as_path().to_string_lossy().to_string(), &fs_extra::file::CopyOptions::new()) {
                     Ok(_) => {
-                        println!("{} compress `PNG` file: {} success !", LOGGER_PREFIX.cyan().bold(), &file.relative_path.cyan().bold());
+                        println!("{} compress `{}` file: {} success !", LOGGER_PREFIX.cyan().bold(), name.cyan().bold(), &file.relative_path.cyan().bold());
                         true
                     },
                     Err(err) => {
-                        println!("{} regenerate `PNG` image: {} error: {:#?}", LOGGER_PREFIX.cyan().bold(), &file.relative_path.red().bold(), err);
+                        println!("{} regenerate `{}` image: {} error: {:#?}", LOGGER_PREFIX.cyan().bold(), name.cyan().bold(), &file.relative_path.red().bold(), err);
                         false
                     }
                 };
@@ -268,14 +362,14 @@ impl Img {
             }
         } else {
             // 移动文件
-           let options = fs_extra::file::CopyOptions::new();
-           success = match fs_extra::file::move_file(dest_tmp_file_path.as_path().to_string_lossy().to_string(), dest_file_path.as_path().to_string_lossy().to_string(), &options) {
+            let options = fs_extra::file::CopyOptions::new();
+            success = match fs_extra::file::move_file(dest_tmp_file_path.as_path().to_string_lossy().to_string(), dest_file_path.as_path().to_string_lossy().to_string(), &options) {
                 Ok(_) => {
-                    println!("{} compress `PNG` file: {} success !", LOGGER_PREFIX.cyan().bold(), &file.relative_path.cyan().bold());
+                    println!("{} compress `{}` file: {} success !", LOGGER_PREFIX.cyan().bold(), name.cyan().bold(), &file.relative_path.cyan().bold());
                     true
                 },
                 Err(err) => {
-                    println!("{} regenerate `PNG` image: {} error: {:#?}", LOGGER_PREFIX.cyan().bold(), &file.relative_path.red().bold(), err);
+                    println!("{} regenerate `{}` image: {} error: {:#?}", LOGGER_PREFIX.cyan().bold(), name.cyan().bold(), &file.relative_path.red().bold(), err);
                     false
                 }
             };

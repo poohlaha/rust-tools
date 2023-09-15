@@ -38,7 +38,7 @@ pub struct CompressorFile {
     pub relative_path: String, // 相对路径
 }
 
-const FILE_LIST: [&str; 3] = ["jpg", "jpeg", "png"];
+const FILE_LIST: [&str; 4] = ["jpg", "jpeg", "png", "gif"];
 impl Compressor {
 
     pub fn new(args: CompressorArgs) -> Compressor {
@@ -222,16 +222,18 @@ fn compress(origin_file_path: &PathBuf, dest_file_path: &PathBuf, dest_tmp_file_
     // println!("{} generate image path: {}", LOGGER_PREFIX.cyan().bold(), dest_file_path.as_path().to_string_lossy().to_string());
     // println!("{} generate tmp image path: {}", LOGGER_PREFIX.cyan().bold(), dest_tmp_file_path.as_path().to_string_lossy().to_string());
 
-    let img_resize = Img::resize(origin_file_path, factor.size_ratio());
-    if img_resize.is_none() {
-        return false;
-    }
-
-    let img_resize = img_resize.unwrap();
+    let is_same_dir = &compressor.original_path.as_path().to_string_lossy().to_string() == &compressor.destination_path.as_path().to_string_lossy().to_string();
     if extension == "png" {
-        let is_same_dir = &compressor.original_path.as_path().to_string_lossy().to_string() == &compressor.destination_path.as_path().to_string_lossy().to_string();
         Img::compress_png(origin_file_path, factor.quality(), dest_file_path, dest_tmp_file_path, file, is_same_dir);
+    } else if extension == "gif" {
+        Img::compress_gif(origin_file_path, factor.quality(), dest_file_path, dest_tmp_file_path, file, is_same_dir);
     } else {
+        let img_resize = Img::resize(origin_file_path, factor.size_ratio());
+        if img_resize.is_none() {
+            return false;
+        }
+
+        let img_resize = img_resize.unwrap();
         Img::compress_jpg(img_resize, factor.quality(), dest_file_path, file_relative_path);
     }
 
