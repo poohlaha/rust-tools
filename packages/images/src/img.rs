@@ -5,7 +5,6 @@ use std::fs::File;
 use std::io::Write;
 use colored::*;
 use std::path::{PathBuf};
-use gif::{DecodingError, EncodingError, Frame};
 use image::imageops::FilterType;
 use imagequant::{Attributes};
 use lodepng::decode32_file;
