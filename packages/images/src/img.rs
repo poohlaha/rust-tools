@@ -235,7 +235,7 @@ impl Img {
     }
 
     /// 压缩 gif
-    pub fn compress_gif(file_path: &PathBuf, quality: f32, dest_file_path: &PathBuf, dest_tmp_file_path: &PathBuf, file: &CompressorFile, is_same_dir: bool) -> bool {
+    pub fn compress_gif(file_path: &PathBuf, dest_file_path: &PathBuf, dest_tmp_file_path: &PathBuf, file: &CompressorFile, is_same_dir: bool) -> bool {
         let img = match File::open(file_path) {
             Ok(img) => Some(img),
             Err(err) => {

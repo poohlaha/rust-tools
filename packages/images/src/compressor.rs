@@ -226,7 +226,7 @@ fn compress(origin_file_path: &PathBuf, dest_file_path: &PathBuf, dest_tmp_file_
     if extension == "png" {
         Img::compress_png(origin_file_path, factor.quality(), dest_file_path, dest_tmp_file_path, file, is_same_dir);
     } else if extension == "gif" {
-        Img::compress_gif(origin_file_path, factor.quality(), dest_file_path, dest_tmp_file_path, file, is_same_dir);
+        Img::compress_gif(origin_file_path, dest_file_path, dest_tmp_file_path, file, is_same_dir);
     } else {
         let img_resize = Img::resize(origin_file_path, factor.size_ratio());
         if img_resize.is_none() {
