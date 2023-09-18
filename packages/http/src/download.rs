@@ -152,18 +152,6 @@ impl Download {
         return false
     }
 
-    fn format_size(size: u64) -> (f64, &'static str) {
-        if size < 1_000 {
-            (size as f64, "bytes")
-        } else if size < 1_000_000 {
-            (size as f64 / 1_000.0, "KB")
-        } else if size < 1_000_000_000 {
-            (size as f64 / 1_000_000.0, "MB")
-        } else {
-            (size as f64 / 1_000_000_000.0, "GB")
-        }
-    }
-
     /// 文件下载, 包含进度条
     pub async fn download_process(options: DownloadOptions) -> bool {
         let (response, download_file_name) = Download::get_response(&options).await;
@@ -243,7 +231,7 @@ impl Download {
             pb.set_position(min(downloaded_size, content_length));
         }
 
-        pb.finish_with_message("downloaded");
+        pb.finish_with_message(" ");
 
         let success = match file.sync_all().await {
             Ok(_) => true,
