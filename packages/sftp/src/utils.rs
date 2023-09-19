@@ -3,7 +3,7 @@ use crate::LOGGER_PREFIX;
 use colored::*;
 use std::{fs, io};
 use std::fs::File;
-use std::io::{BufRead, Write};
+use std::io::{Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 use fs_extra::copy_items;

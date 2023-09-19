@@ -6,7 +6,8 @@ pub struct Server {
     pub host: String,
     pub port: u32,
     pub username: String,
-    pub password: String
+    pub password: String,
+    pub timeout: u64,
 }
 
 impl Server {
@@ -18,10 +19,11 @@ impl Server {
 /// 文件上传配置
 #[derive(Debug, Default)]
 pub struct Upload {
-    pub cmds: Vec<String>, // 服务端命令
-    pub dir: String, // 目录 或 文件 名称
-    pub server_dir: String, // 上传服务器目录
-    pub server_file_name: Option<String> // 服务端文件名称, 如果是文件默认同文件名, 如果是目录，默认同目录名
+    pub cmds: Vec<String>,                // 服务端命令
+    pub dir: String,                      // 目录 或 文件 名称
+    pub server_dir: String,               // 上传服务器目录
+    pub server_file_name: Option<String>, // 服务端文件名称, 如果是文件默认同文件名, 如果是目录，默认同目录名
+    pub need_increment: bool,             // 是否增量发布, 如果是增量则需要比较文件是否一致
 }
 
 impl Upload {
