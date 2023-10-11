@@ -35,6 +35,7 @@ impl HttpClient {
 
                 let mut header_value = value.as_str().unwrap_or("");
                 // 表单提交
+                /*
                 if is_form_submit {
                     if header_value.to_lowercase() != "application/x-www-form-urlencoded" {
                         header_value = "application/x-www-form-urlencoded";
@@ -47,6 +48,7 @@ impl HttpClient {
                         header_value = "multipart/form-data";
                     }
                 }
+                */
 
                 new_headers.push((key.clone(), String::from(header_value)));
             }
@@ -141,7 +143,10 @@ impl HttpClient {
 
         // headers
         let mut request_headers = HeaderMap::new();
-        request_headers.insert(&HeaderName::from_bytes("accept".as_bytes()).unwrap(), "*/*".parse().unwrap());
+        let headers = Self::get_headers(options.headers, false, true);
+        for (name, value) in headers.iter() {
+            request_headers.insert(&HeaderName::from_bytes(name.as_bytes()).unwrap(), value.as_str().parse().unwrap());
+        }
 
         println!("headers: {:?}", request_headers);
 
