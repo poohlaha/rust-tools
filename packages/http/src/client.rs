@@ -227,7 +227,7 @@ impl HttpClient {
     /// 获取超时时间
     fn get_timeout(timeout: Option<u64>) -> u64 {
         let mut send_timeout = DEFAULT_TIMEOUT;
-        if timeout.is_none() {
+        if !timeout.is_none() {
             send_timeout = timeout.unwrap();
         }
 
