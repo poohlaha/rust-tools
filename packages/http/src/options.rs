@@ -11,7 +11,8 @@ pub struct Options {
     pub method: Option<String>, // method: post、get
     pub data: Option<Value>, // data
     pub form: Option<Form>, // form
-    pub headers: Option<Value> // headers
+    pub headers: Option<Value>, // headers
+    pub timeout: Option<u64>,   // timeout
 }
 
 /// 输出数据结构体

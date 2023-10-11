@@ -15,6 +15,7 @@ fn test_http_get() {
             form: None,
             method: Some("get".to_string()),
             headers: None,
+            timeout: None
         };
         let response: HttpResponse = HttpClient::send(options, false).await;
         assert_eq!(response.status_code, 200);
@@ -40,6 +41,7 @@ fn test_http_post() {
             form: None,
             method: None,
             headers: None,
+            timeout: None
         };
         let response: HttpResponse = HttpClient::send(options, false).await;
         assert_eq!(response.status_code, 200);
@@ -60,6 +62,7 @@ fn test_http_form_data() {
         form: Some(form),
         method: None,
         headers: None,
+        timeout: None
     };
     let response: HttpResponse = HttpClient::send_form_data(options);
     assert_eq!(response.status_code, 200);

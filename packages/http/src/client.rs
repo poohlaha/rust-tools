@@ -7,18 +7,22 @@ use reqwest::{Client, Method, RequestBuilder, StatusCode};
 use reqwest::header::{HeaderMap, HeaderName};
 use crate::options::Options;
 use crate::options::HttpResponse;
+use std::time::Duration;
+use colored::*;
+use crate::LOGGER_PREFIX;
 
 pub struct HttpClient;
 
-impl HttpClient {
+const DEFAULT_TIMEOUT: u64 = 30;
 
+impl HttpClient {
     /// 获取返回错误 HttpResponse
     fn get_error_response<T: Debug + ToString>(code: u16, error: &T) -> HttpResponse {
         return HttpResponse {
             status_code: code,
             headers: HashMap::new(),
             body: Value::default(),
-            error: format!("send request error: {:?}", error)
+            error: format!("send request error: {:?}", error),
         };
     }
 
@@ -33,9 +37,9 @@ impl HttpClient {
                     has_content_type = true
                 }
 
-                let mut header_value = value.as_str().unwrap_or("");
-                // 表单提交
+                let header_value = value.as_str().unwrap_or("");
                 /*
+                // 表单提交
                 if is_form_submit {
                     if header_value.to_lowercase() != "application/x-www-form-urlencoded" {
                         header_value = "application/x-www-form-urlencoded";
@@ -69,10 +73,10 @@ impl HttpClient {
 
     /// 发送请求
     pub async fn send(options: Options, is_form_submit: bool) -> HttpResponse {
-        println!("options: {:#?}", options);
+        println!("{} options: {:#?}", LOGGER_PREFIX.cyan().bold(), options);
 
         if options.url.is_empty() {
-            println!("url is empty");
+            println!("{} {}", LOGGER_PREFIX.cyan().bold(), "url is empty".red().bold());
             return HttpResponse {
                 status_code: 500,
                 headers: HashMap::new(),
@@ -85,8 +89,25 @@ impl HttpClient {
         let method: String = options.method.as_deref().unwrap_or("post").to_string();
         let request_method = if method.to_lowercase() == "get" { Method::GET } else { Method::POST }; // 发送请求 method
 
-        let client = Client::new();
-        let mut request: RequestBuilder = client.request(request_method, options.url);
+        // Client::new() | Client::builder()
+        let client = Client::builder()
+            .danger_accept_invalid_certs(true)
+            // .danger_accept_invalid_hostnames(true)
+            .build();
+
+        if client.is_err() {
+            println!("{} create http client error: {:#?} !", LOGGER_PREFIX.cyan().bold(), client.is_err());
+            return HttpResponse {
+                status_code: 500,
+                headers: HashMap::new(),
+                body: Value::default(),
+                error: String::from("create http client error !"),
+            };
+        }
+
+        let client = client.unwrap();
+        let request: RequestBuilder = client.request(request_method, options.url);
+        let mut request = request.timeout(Duration::from_secs(HttpClient::get_timeout(options.timeout)));
 
         // headers
         let mut request_headers = HeaderMap::new();
@@ -95,7 +116,7 @@ impl HttpClient {
             request_headers.insert(&HeaderName::from_bytes(name.as_bytes()).unwrap(), value.as_str().parse().unwrap());
         }
 
-        println!("headers: {:?}", request_headers);
+        println!("{} headers: {:#?}", LOGGER_PREFIX.cyan().bold(), request_headers);
 
         // body
         if let Some(data) = options.data {
@@ -114,7 +135,7 @@ impl HttpClient {
                 HttpClient::get_response(status, response_headers, body)
             }
             Err(error) => {
-                println!("send request error: {}", error);
+                println!("{} send request error: {:#?}", LOGGER_PREFIX.cyan().bold(), error);
                 Self::get_error_response(500, &error)
             }
         };
@@ -122,10 +143,10 @@ impl HttpClient {
 
     /// 通过 multipart/form-data 提交, 使用 blocking
     pub fn send_form_data(options: Options) -> HttpResponse {
-        println!("options: {:#?}", options);
+        println!("{} options: {:#?}", LOGGER_PREFIX.cyan().bold(), options);
 
         if options.url.is_empty() {
-            println!("url is empty");
+            println!("{} {}", LOGGER_PREFIX.cyan().bold(), "url is empty".red().bold());
             return HttpResponse {
                 status_code: 500,
                 headers: HashMap::new(),
@@ -138,8 +159,25 @@ impl HttpClient {
         let method: String = options.method.as_deref().unwrap_or("post").to_string();
         let request_method = if method.to_lowercase() == "get" { Method::GET } else { Method::POST }; // 发送请求 method
 
-        let client = reqwest::blocking::Client::new();
-        let mut request = client.request(request_method, options.url);
+        // 忽略 https 证书
+        let client = reqwest::blocking::Client::builder()
+            .danger_accept_invalid_certs(true)
+            // .danger_accept_invalid_hostnames(true)
+            .build();
+
+        if client.is_err() {
+            println!("{} create http client error: {:#?} !", LOGGER_PREFIX.cyan().bold(), client.is_err());
+            return HttpResponse {
+                status_code: 500,
+                headers: HashMap::new(),
+                body: Value::default(),
+                error: String::from("create http client error !"),
+            };
+        }
+
+        let client = client.unwrap();
+        let request = client.request(request_method, options.url);
+        let mut request = request.timeout(Duration::from_secs(HttpClient::get_timeout(options.timeout)));
 
         // headers
         let mut request_headers = HeaderMap::new();
@@ -148,7 +186,8 @@ impl HttpClient {
             request_headers.insert(&HeaderName::from_bytes(name.as_bytes()).unwrap(), value.as_str().parse().unwrap());
         }
 
-        println!("headers: {:?}", request_headers);
+        // request_headers.insert(&HeaderName::from_bytes("accept".as_bytes()).unwrap(), "*/*".parse().unwrap());
+        println!("{} headers: {:?}", LOGGER_PREFIX.cyan().bold(), request_headers);
 
         // form
         if let Some(form) = options.form {
@@ -163,7 +202,7 @@ impl HttpClient {
                 HttpClient::get_response(status, response_headers, body)
             }
             Err(error) => {
-                println!("send request error: {}", error);
+                println!("{} send request error: {:#?}", LOGGER_PREFIX.cyan().bold(), error);
                 Self::get_error_response(500, &error)
             }
         };
@@ -183,5 +222,15 @@ impl HttpClient {
         } else {
             return Self::get_error_response(status_code, &status_code);
         }
+    }
+
+    /// 获取超时时间
+    fn get_timeout(timeout: Option<u64>) -> u64 {
+        let mut send_timeout = DEFAULT_TIMEOUT;
+        if timeout.is_none() {
+            send_timeout = timeout.unwrap();
+        }
+
+        return send_timeout;
     }
 }
