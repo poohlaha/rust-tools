@@ -62,7 +62,8 @@ impl HttpClient {
             if is_form_submit {
                 new_headers.push((String::from("content-type"), String::from("application/x-www-form-urlencoded")));
             } else if is_file_submit {
-                new_headers.push((String::from("content-type"), String::from("multipart/form-data")));
+                // 不需要, 不然报错
+                // new_headers.push((String::from("content-type"), String::from("multipart/form-data")));
             } else {
                 new_headers.push((String::from("content-type"), String::from("application/json")));
             }

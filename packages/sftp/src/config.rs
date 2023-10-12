@@ -1,7 +1,7 @@
 //! 配置
 
 /// 服务器配置
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Server {
     pub host: String,
     pub port: u32,

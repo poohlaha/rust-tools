@@ -50,18 +50,17 @@ impl Sftp {
 
     /// 连接服务器, 处理逻辑
     pub fn send(&mut self) -> SftpResult {
+        // 处理输出目录, 压缩成 .zip 文件
+        let (server_file_name, server_zip_file_name) = self.hand_output_dir();
+        return self.exec(&server_file_name, &server_zip_file_name);
+    }
+
+    /// 连接服务器, 处理逻辑
+    pub fn exec(&mut self, server_file_name: &str, server_zip_file_name: &str) -> SftpResult {
         let mut result = SftpResult::default();
         let server = &self.server;
         if server.is_empty() {
             println!("{} one of `host`、`port`、`username` and `password` items is empty !", LOGGER_PREFIX.cyan().bold());
-            return result;
-        }
-
-        let cmds = &self.upload.cmds;
-
-        // 处理输出目录, 压缩成 .zip 文件
-        let (server_file_name, server_zip_file_name) = self.hand_output_dir();
-        if cmds.is_empty() && (server_file_name.is_empty() || server_zip_file_name.is_empty()) {
             return result;
         }
 
@@ -115,10 +114,15 @@ impl Sftp {
 
         // 处理文件上传
         if !server_file_name.is_empty() && !server_zip_file_name.is_empty() {
-            let sftp_result = self.upload(&session, &server_file_name, &server_zip_file_name, &self.upload);
+            let sftp_result = self.upload(&session, server_file_name, server_zip_file_name, &self.upload);
             result = sftp_result;
         } else {
             // 直接执行命令
+            let cmds = &self.upload.cmds;
+            if cmds.is_empty() {
+                return result;
+            }
+
             let success = self.exec_command(&session, cmds);
             result.success = success
         }
@@ -135,8 +139,8 @@ impl Sftp {
         if flag {
             println!("{} upload success !", LOGGER_PREFIX.cyan().bold());
             result.dir = String::from(&self.upload.dir);
-            result.file_name = String::from(&server_file_name);
-            result.zip_file_name = String::from(&server_zip_file_name);
+            result.file_name = String::from(server_file_name);
+            result.zip_file_name = String::from(server_zip_file_name);
             result.success = true;
             return result;
         }
@@ -639,7 +643,7 @@ impl Sftp {
     }
 
     /// 处理输出目录, 压缩成 .zip 文件
-    fn hand_output_dir(&self) -> (String, String) {
+    pub fn hand_output_dir(&self) -> (String, String) {
         let upload = &self.upload;
         if upload.is_empty() {
             println!("{} upload props is empty, skip upload !", LOGGER_PREFIX.cyan().bold());
@@ -692,9 +696,11 @@ impl Sftp {
         if extension.ends_with("zip") {
             let file_path = Utils::get_path(&upload_dir, &[&server_file_name]);
             let output_file_path = Utils::get_path(&upload_dir, &[&server_zip_file_name]);
-            let success = Utils::file_move(&file_path, &output_file_path);
-            if !success {
-                return (String::new(), String::new());
+            if !Path::new(&output_file_path).exists() {
+                let success = Utils::file_move(&file_path, &output_file_path);
+                if !success {
+                    return (String::new(), String::new());
+                }
             }
 
             return (server_file_name.clone(), server_zip_file_name.clone());
@@ -735,8 +741,13 @@ impl Sftp {
                 let source_dir = Utils::get_path(upload_dir, &[&file_name]);
                 let output_file_name = server_file_name.clone() + ".zip";
                 let dest_dir = Utils::get_path(upload_dir, &[&output_file_name]);
-                println!("source_dir: {}", source_dir);
-                println!("dest_dir: {}", dest_dir);
+                println!("{} source_dir: {}", LOGGER_PREFIX.cyan().bold(), source_dir);
+                println!("{} dest_dir: {}", LOGGER_PREFIX.cyan().bold(), dest_dir);
+
+                if Path::new(&dest_dir).exists() {
+                    return output_file_name;
+                }
+
                 let success = Utils::file_move(&source_dir, &dest_dir);
                 if success {
                     return output_file_name;
