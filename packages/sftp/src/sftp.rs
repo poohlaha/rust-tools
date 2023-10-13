@@ -34,6 +34,7 @@ pub struct SftpResult {
     pub file_list: Vec<String>,
     pub need_increment: bool,
     pub success: bool,
+    pub host: String
 }
 
 impl Sftp {
@@ -142,6 +143,7 @@ impl Sftp {
             result.file_name = String::from(server_file_name);
             result.zip_file_name = String::from(server_zip_file_name);
             result.success = true;
+            result.host = String::from(&self.server.host);
             return result;
         }
 

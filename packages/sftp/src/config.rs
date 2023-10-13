@@ -12,7 +12,7 @@ pub struct Server {
 
 impl Server {
     pub fn is_empty(&self) -> bool {
-        return self.host.is_empty() && self.port == 0 && self.username.is_empty() && self.password.is_empty();
+        return self.host.is_empty() || self.port == 0 || self.username.is_empty() || self.password.is_empty();
     }
 }
 
