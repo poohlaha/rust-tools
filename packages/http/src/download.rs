@@ -2,17 +2,16 @@
 
 use std::cmp::min;
 use std::ffi::OsStr;
-use std::fmt::Write;
+use std::fmt::Write as ProgressWrite;
 use std::fs::{File};
 use std::{fs, io};
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 use colored::*;
 use indicatif::{MultiProgress, ProgressBar, ProgressState, ProgressStyle};
 use reqwest::{Client, Response};
 use reqwest::header::CONTENT_LENGTH;
-use tokio::fs::File as TokioFile;
-use tokio::io::AsyncWriteExt;
 use crate::LOGGER_PREFIX;
 
 pub struct Download;
@@ -259,7 +258,7 @@ impl Download {
             return result;
         }
 
-        let file = match TokioFile::create(&output_file_path).await {
+        let file = match File::create(&output_file_path) {
             Ok(file) => Some(file),
             Err(err) => {
                 println!("{} create file {} error: {:#?}", LOGGER_PREFIX.cyan().bold(), output_file_path.as_path().to_string_lossy().to_string().red().bold(), err);
@@ -287,10 +286,10 @@ impl Download {
         let download_file_name_clone = download_file_name.clone();
         pb.set_style(ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({msg}) ({eta})")
             .unwrap()
-            .with_key("msg", move |_state: &ProgressState, w: &mut dyn Write| {
+            .with_key("msg", move |_state: &ProgressState, w: &mut dyn ProgressWrite| {
                 write!(w, "{}", download_file_name_clone).unwrap()
             })
-            .with_key("eta", |state: &ProgressState, w: &mut dyn Write| write!(w, "{:.1}s", state.eta().as_secs_f64()).unwrap())
+            .with_key("eta", |state: &ProgressState, w: &mut dyn ProgressWrite| write!(w, "{:.1}s", state.eta().as_secs_f64()).unwrap())
             .progress_chars("#>-"));
 
 
@@ -299,7 +298,7 @@ impl Download {
             let chunk_size = chunk.len() as u64;
             downloaded_size += chunk_size;
 
-            let flag = match file.write_all(&chunk).await {
+            let flag = match file.write_all(&chunk) {
                 Ok(_) => true,
                 Err(err) => {
                     println!("{} write to file {} error: {:#?}", LOGGER_PREFIX.cyan().bold(), &download_file_name.red().bold(), err);
@@ -324,7 +323,7 @@ impl Download {
 
         pb.finish_with_message(" ");
 
-        let success = match file.sync_all().await {
+        let success = match file.sync_all() {
             Ok(_) => true,
             Err(err) => {
                 println!("{} download file {} error: {:#?}", LOGGER_PREFIX.cyan().bold(), &download_file_name, err);
