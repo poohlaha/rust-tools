@@ -1,22 +1,20 @@
-//! 使用 reqwest 发送 http 和 https 请求
-
+use crate::options::HttpResponse;
+use crate::options::{HttpError, Options};
+use crate::LOGGER_PREFIX;
+use colored::*;
+use reqwest::header::{HeaderMap, HeaderName};
+use reqwest::{Client, Method, RequestBuilder, StatusCode};
+use serde_json::Value;
 use std::collections::HashMap;
 use std::fmt::Debug;
-use serde_json::Value;
-use reqwest::{Client, Method, RequestBuilder, StatusCode};
-use reqwest::header::{HeaderMap, HeaderName};
-use crate::options::{HttpError, Options};
-use crate::options::HttpResponse;
 use std::time::Duration;
-use colored::*;
-use crate::LOGGER_PREFIX;
 
 pub struct HttpClient;
 
 const DEFAULT_TIMEOUT: u64 = 30;
 
 impl HttpClient {
-    /// 获取返回错误 HttpResponse
+    /// return the error response
     fn get_error_response<T: Debug + ToString>(code: u16, error: &T) -> HttpResponse {
         return HttpResponse {
             status_code: code,
@@ -26,7 +24,7 @@ impl HttpClient {
         };
     }
 
-    /// 获取请求头
+    /// get headers
     fn get_headers(headers: Option<Value>, is_form_submit: bool, is_file_submit: bool) -> Vec<(String, String)> {
         let mut new_headers: Vec<(String, String)> = Vec::new();
 
@@ -38,21 +36,6 @@ impl HttpClient {
                 }
 
                 let header_value = value.as_str().unwrap_or("");
-                /*
-                // 表单提交
-                if is_form_submit {
-                    if header_value.to_lowercase() != "application/x-www-form-urlencoded" {
-                        header_value = "application/x-www-form-urlencoded";
-                    }
-                }
-
-                // 上传文件
-                if is_file_submit {
-                    if header_value.to_lowercase() != "multipart/form-data" {
-                        header_value = "multipart/form-data";
-                    }
-                }
-                */
 
                 new_headers.push((key.clone(), String::from(header_value)));
             }
@@ -62,7 +45,7 @@ impl HttpClient {
             if is_form_submit {
                 new_headers.push((String::from("content-type"), String::from("application/x-www-form-urlencoded")));
             } else if is_file_submit {
-                // 不需要, 不然报错
+                // if need will be error
                 // new_headers.push((String::from("content-type"), String::from("multipart/form-data")));
             } else {
                 new_headers.push((String::from("content-type"), String::from("application/json")));
@@ -72,7 +55,7 @@ impl HttpClient {
         return new_headers;
     }
 
-    /// 发送请求
+    /// send request
     pub async fn send(options: Options, is_form_submit: bool) -> Result<HttpResponse, HttpError> {
         println!("{} options: {:#?}", LOGGER_PREFIX.cyan().bold(), options);
 
@@ -83,13 +66,14 @@ impl HttpClient {
 
         // method
         let method: String = options.method.as_deref().unwrap_or("post").to_string();
-        let request_method = if method.to_lowercase() == "get" { Method::GET } else { Method::POST }; // 发送请求 method
+        let request_method = if method.to_lowercase() == "get" { Method::GET } else { Method::POST };
 
         // Client::new() | Client::builder()
         let client = Client::builder()
             .danger_accept_invalid_certs(true)
             // .danger_accept_invalid_hostnames(true)
-            .build().map_err(|err| HttpError::CreateClientError(Box::new(err)))?;
+            .build()
+            .map_err(|err| HttpError::CreateClientError(Box::new(err)))?;
 
         let request: RequestBuilder = client.request(request_method, options.url);
         let mut request = request.timeout(Duration::from_secs(HttpClient::get_timeout(options.timeout)));
@@ -119,7 +103,7 @@ impl HttpClient {
         Ok(HttpClient::get_response(status, response_headers, body))
     }
 
-    /// 通过 multipart/form-data 提交, 使用 blocking
+    /// send form-data request, use reqwest blocking
     pub fn send_form_data(options: Options) -> Result<HttpResponse, HttpError> {
         println!("{} options: {:#?}", LOGGER_PREFIX.cyan().bold(), options);
 
@@ -130,13 +114,14 @@ impl HttpClient {
 
         // method
         let method: String = options.method.as_deref().unwrap_or("post").to_string();
-        let request_method = if method.to_lowercase() == "get" { Method::GET } else { Method::POST }; // 发送请求 method
+        let request_method = if method.to_lowercase() == "get" { Method::GET } else { Method::POST };
 
-        // 忽略 https 证书
+        // Ignore `HTTPS` certificate
         let client = reqwest::blocking::Client::builder()
             .danger_accept_invalid_certs(true)
             // .danger_accept_invalid_hostnames(true)
-            .build().map_err(|err| HttpError::CreateClientError(Box::new(err)))?;
+            .build()
+            .map_err(|err| HttpError::CreateClientError(Box::new(err)))?;
 
         let request = client.request(request_method, options.url);
         let mut request = request.timeout(Duration::from_secs(HttpClient::get_timeout(options.timeout)));
@@ -148,7 +133,6 @@ impl HttpClient {
             request_headers.insert(&HeaderName::from_bytes(name.as_bytes()).unwrap(), value.as_str().parse().unwrap());
         }
 
-        // request_headers.insert(&HeaderName::from_bytes("accept".as_bytes()).unwrap(), "*/*".parse().unwrap());
         println!("{} headers: {:?}", LOGGER_PREFIX.cyan().bold(), request_headers);
 
         // form
@@ -163,7 +147,7 @@ impl HttpClient {
         Ok(HttpClient::get_response(status, response_headers, body))
     }
 
-    /// 获取 response
+    /// get http response
     fn get_response(status: StatusCode, response_headers: HeaderMap, body: String) -> HttpResponse {
         let status_code = status.as_u16();
         if status.is_success() {
@@ -179,7 +163,7 @@ impl HttpClient {
         }
     }
 
-    /// 获取超时时间
+    /// get timeout
     fn get_timeout(timeout: Option<u64>) -> u64 {
         let mut send_timeout = DEFAULT_TIMEOUT;
         if !timeout.is_none() {

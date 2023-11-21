@@ -1,28 +1,26 @@
-//! 文件下载
-
+use crate::options::HttpError;
+use crate::LOGGER_PREFIX;
+use colored::*;
+use indicatif::{MultiProgress, ProgressBar, ProgressState, ProgressStyle};
+use reqwest::header::CONTENT_LENGTH;
+use reqwest::{Client, Response};
 use std::cmp::min;
 use std::ffi::OsStr;
 use std::fmt::Write as ProgressWrite;
-use std::fs::{File};
-use std::{fs};
+use std::fs;
+use std::fs::File;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
-use colored::*;
-use indicatif::{MultiProgress, ProgressBar, ProgressState, ProgressStyle};
-use reqwest::{Client, Response};
-use reqwest::header::CONTENT_LENGTH;
-use crate::LOGGER_PREFIX;
-use crate::options::HttpError;
 
 pub struct Download;
 
 pub struct DownloadOptions {
-    pub url: String, // url
-    pub file_name: Option<String>, // 另存为的文件名, 如果为空, 则取 url 中的文件名
-    pub timeout: Option<u64>, // 超时时间, 0 表示不设置超时时间
-    pub output_dir: Option<String>, // 输出目录
-    pub overwrite: Option<bool>, // 当文件存在时, 是否覆盖
+    pub url: String,                // url
+    pub file_name: Option<String>,  // save download url, if null, will use filename by url
+    pub timeout: Option<u64>,       // timeout, default `0`
+    pub output_dir: Option<String>, // output dir
+    pub overwrite: Option<bool>,    // if file exists, will overwrite
 }
 
 #[derive(Default, Debug)]
@@ -41,7 +39,7 @@ impl DownloadResult {
 
 const TIMEOUT: u64 = 30;
 impl Download {
-
+    /// get download filename
     fn get_file_name(options: &DownloadOptions) -> String {
         let file_name = options.file_name.clone();
         let download_file_name;
@@ -55,19 +53,21 @@ impl Download {
         return download_file_name;
     }
 
+    /// get download timeout
     fn get_timeout(options: &DownloadOptions) -> u64 {
         let timeout = options.timeout;
-        let download_timeout = if timeout.is_none() { TIMEOUT } else {timeout.unwrap()};
+        let download_timeout = if timeout.is_none() { TIMEOUT } else { timeout.unwrap() };
         return download_timeout;
     }
 
+    /// get response
     async fn get_response(options: &DownloadOptions) -> Result<(Response, String), HttpError> {
         if options.url.is_empty() {
             println!("{} download url is empty !", LOGGER_PREFIX.cyan().bold());
             return Err(HttpError::Empty("download url is empty !".to_string()));
         }
 
-        let download_file_name= Download::get_file_name(&options);
+        let download_file_name = Download::get_file_name(&options);
         if download_file_name.is_empty() {
             println!("{} download file name is empty, please check `url` or `file_name` !", LOGGER_PREFIX.cyan().bold());
             return Err(HttpError::Empty("download file name is empty, please check `url` or `file_name` !".to_string()));
@@ -76,15 +76,16 @@ impl Download {
         let timeout = Download::get_timeout(&options);
         let client;
         if timeout <= 0 {
-            client = Client::builder().build().map_err(|err|HttpError::CreateClientError(Box::new(err)))?;
+            client = Client::builder().build().map_err(|err| HttpError::CreateClientError(Box::new(err)))?;
         } else {
-            client = Client::builder().timeout(Duration::new(timeout, 0)).build().map_err(|err|HttpError::CreateClientError(Box::new(err)))?;
+            client = Client::builder().timeout(Duration::new(timeout, 0)).build().map_err(|err| HttpError::CreateClientError(Box::new(err)))?;
         }
 
         let response = client.get(options.url.clone()).send().await.map_err(|err| HttpError::SendError(Box::new(err)))?;
         Ok((response, download_file_name))
     }
 
+    /// get output file path
     fn get_output_file(options: &DownloadOptions, download_file_name: &str) -> PathBuf {
         let mut output_file_path = PathBuf::new();
         if options.output_dir.is_some() {
@@ -96,7 +97,7 @@ impl Download {
         return output_file_path;
     }
 
-    /// 文件下载, 包含进度条
+    /// download file, include progress bar
     pub async fn download(options: DownloadOptions, progress: Option<&MultiProgress>) -> Result<DownloadResult, HttpError> {
         let mut result = DownloadResult::default();
         result.url = options.url.clone();
@@ -110,10 +111,8 @@ impl Download {
             return Ok(result);
         }
 
-        // 获取响应头中的文件大小
-        let content_length = response.headers().get(CONTENT_LENGTH).and_then(|value| value.to_str().ok())
-            .and_then(|value| value.parse::<u64>().ok())
-            .unwrap_or(0);
+        // get file size
+        let content_length = response.headers().get(CONTENT_LENGTH).and_then(|value| value.to_str().ok()).and_then(|value| value.parse::<u64>().ok()).unwrap_or(0);
 
         if progress.is_none() {
             println!("{} file: {} content length: {}", LOGGER_PREFIX.cyan().bold(), &download_file_name, content_length);
@@ -132,10 +131,11 @@ impl Download {
         let overwrite = if options.overwrite.is_none() { true } else { options.overwrite.unwrap() };
         let mut has_need_download = true;
 
-        // 判断当前文件是否存在, 并且是否已下载完成
+        // judge file is downloaded
         if output_file_path.exists() {
             let size = fs::metadata(&output_file_path).unwrap().len();
             if size == content_length {
+                // download success
                 has_need_download = overwrite
             }
         }
@@ -169,19 +169,18 @@ impl Download {
         if progress.is_none() {
             pb = ProgressBar::new(content_length);
         } else {
-           let progress = progress.unwrap();
+            let progress = progress.unwrap();
             pb = progress.add(ProgressBar::new(content_length));
         }
 
         let download_file_name_clone = download_file_name.clone();
-        pb.set_style(ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({msg}) ({eta})")
-            .unwrap()
-            .with_key("msg", move |_state: &ProgressState, w: &mut dyn ProgressWrite| {
-                write!(w, "{}", download_file_name_clone).unwrap()
-            })
-            .with_key("eta", |state: &ProgressState, w: &mut dyn ProgressWrite| write!(w, "{:.1}s", state.eta().as_secs_f64()).unwrap())
-            .progress_chars("#>-"));
-
+        pb.set_style(
+            ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({msg}) ({eta})")
+                .unwrap()
+                .with_key("msg", move |_state: &ProgressState, w: &mut dyn ProgressWrite| write!(w, "{}", download_file_name_clone).unwrap())
+                .with_key("eta", |state: &ProgressState, w: &mut dyn ProgressWrite| write!(w, "{:.1}s", state.eta().as_secs_f64()).unwrap())
+                .progress_chars("#>-"),
+        );
 
         // download
         while let Some(chunk) = response.chunk().await.unwrap() {
@@ -200,14 +199,14 @@ impl Download {
                 return Ok(result);
             }
 
-            // 计算下载速度
+            // calculate download speed
             let elapsed_time = time.elapsed().as_secs_f64();
             if elapsed_time >= 1.0 {
                 download_speed = (downloaded_size as f64 / elapsed_time) / 1_000.0; // kbps
                 time = Instant::now();
             }
 
-            // 更新进度条
+            // update progress bar
             pb.set_position(min(downloaded_size, content_length));
         }
 

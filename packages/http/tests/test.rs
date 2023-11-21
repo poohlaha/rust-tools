@@ -1,8 +1,8 @@
 //! 测试 http 请求
+use request_http::options::HttpResponse;
+use request_http::options::Options;
+use request_http::{client_send, client_send_form_data};
 use tokio::runtime::Runtime;
-use http::options::HttpResponse;
-use http::options::Options;
-use http::{client_send, client_send_form_data};
 
 #[test]
 fn test_http_get() {
@@ -15,7 +15,7 @@ fn test_http_get() {
             form: None,
             method: Some("get".to_string()),
             headers: None,
-            timeout: None
+            timeout: None,
         };
         let response: HttpResponse = client_send(options, false).await.unwrap();
         assert_eq!(response.status_code, 200);
@@ -41,7 +41,7 @@ fn test_http_post() {
             form: None,
             method: None,
             headers: None,
-            timeout: None
+            timeout: None,
         };
         let response: HttpResponse = client_send(options, false).await.unwrap();
         assert_eq!(response.status_code, 200);
@@ -51,10 +51,7 @@ fn test_http_post() {
 #[test]
 fn test_http_form_data() {
     let url = String::from("http://example.com/api/upload");
-    let form = reqwest::blocking::multipart::Form::new()
-        .text("userId", "10074")
-        .text("version", "1.0")
-        .file("files", "/usr/local/text.zip").unwrap();
+    let form = reqwest::blocking::multipart::Form::new().text("userId", "10074").text("version", "1.0").file("files", "/usr/local/text.zip").unwrap();
 
     let options = Options {
         url,
@@ -62,7 +59,7 @@ fn test_http_form_data() {
         form: Some(form),
         method: None,
         headers: None,
-        timeout: None
+        timeout: None,
     };
     let response: HttpResponse = client_send_form_data(options).unwrap();
     assert_eq!(response.status_code, 200);

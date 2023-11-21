@@ -1,7 +1,14 @@
 [package]
-name = "http"
+name = "request-http"
 version = "0.1.0"
 edition = "2021"
+authors = ["poohlaha"]
+license = "MIT/Apache-2.0"
+description = "Send http or https request."
+homepage = "https://github.com/poohlaha/rust-tools/tree/main/packages/http"
+repository = "https://github.com/poohlaha/rust-tools/tree/main/packages/http"
+readme = "README.md"
+keywords = ["http", "request-http", "request"]
 
 [lib]
 crate-type = ["cdylib", "rlib"]
