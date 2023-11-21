@@ -10,7 +10,7 @@ use indicatif::MultiProgress;
 use options::HttpResponse;
 use options::Options;
 
-const LOGGER_PREFIX: &str = "[Http]: ";
+const LOGGER_PREFIX: &str = "[Http Request]: ";
 
 /// form data options
 pub type HttpFormData = reqwest::blocking::multipart::Form;
