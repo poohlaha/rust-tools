@@ -4,7 +4,7 @@ use std::cmp::min;
 use std::ffi::OsStr;
 use std::fmt::Write as ProgressWrite;
 use std::fs::{File};
-use std::{fs, io};
+use std::{fs};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
@@ -13,6 +13,7 @@ use indicatif::{MultiProgress, ProgressBar, ProgressState, ProgressStyle};
 use reqwest::{Client, Response};
 use reqwest::header::CONTENT_LENGTH;
 use crate::LOGGER_PREFIX;
+use crate::options::HttpError;
 
 pub struct Download;
 
@@ -60,52 +61,28 @@ impl Download {
         return download_timeout;
     }
 
-    async fn get_response(options: &DownloadOptions) -> (Option<Response>, String) {
+    async fn get_response(options: &DownloadOptions) -> Result<(Response, String), HttpError> {
         if options.url.is_empty() {
             println!("{} download url is empty !", LOGGER_PREFIX.cyan().bold());
-            return (None, String::new());
+            return Err(HttpError::Empty("download url is empty !".to_string()));
         }
 
         let download_file_name= Download::get_file_name(&options);
         if download_file_name.is_empty() {
             println!("{} download file name is empty, please check `url` or `file_name` !", LOGGER_PREFIX.cyan().bold());
-            return (None, String::new());
+            return Err(HttpError::Empty("download file name is empty, please check `url` or `file_name` !".to_string()));
         }
 
         let timeout = Download::get_timeout(&options);
         let client;
         if timeout <= 0 {
-            client = match Client::builder().build() {
-                Ok(client) => Some(client),
-                Err(err) => {
-                    println!("{} create client error: {:#?}", LOGGER_PREFIX.cyan().bold(), err);
-                    None
-                }
-            };
+            client = Client::builder().build().map_err(|err|HttpError::CreateClientError(Box::new(err)))?;
         } else {
-            client = match Client::builder().timeout(Duration::new(timeout, 0)).build() {
-                Ok(client) => Some(client),
-                Err(err) => {
-                    println!("{} create client error: {:#?}", LOGGER_PREFIX.cyan().bold(), err);
-                    None
-                }
-            };
+            client = Client::builder().timeout(Duration::new(timeout, 0)).build().map_err(|err|HttpError::CreateClientError(Box::new(err)))?;
         }
 
-        if client.is_none() {
-            return (None, String::new());
-        }
-
-        let client = client.unwrap();
-        let response = match client.get(options.url.clone()).send().await {
-            Ok(response) => Some(response),
-            Err(err) => {
-                println!("{} get response error: {:#?}", LOGGER_PREFIX.cyan().bold(), err);
-                None
-            }
-        };
-
-        return (response, download_file_name);
+        let response = client.get(options.url.clone()).send().await.map_err(|err| HttpError::SendError(Box::new(err)))?;
+        Ok((response, download_file_name))
     }
 
     fn get_output_file(options: &DownloadOptions, download_file_name: &str) -> PathBuf {
@@ -119,105 +96,18 @@ impl Download {
         return output_file_path;
     }
 
-    /// 文件下载
-    #[allow(dead_code)]
-    async fn _download(options: DownloadOptions) -> DownloadResult {
-        let mut result = DownloadResult::default();
-        result.url = options.url.clone();
-        result.dir = options.output_dir.clone().unwrap_or(String::new());
-
-        let (response, download_file_name) = Download::get_response(&options).await;
-        if response.is_none() || download_file_name.is_empty() {
-            return result;
-        }
-
-        result.file_name = download_file_name.clone();
-        let response = response.unwrap();
-
-        if response.status().is_success() {
-            let content = match response.bytes().await {
-                Ok(content) => Some(content),
-                Err(err) => {
-                    println!("{} download file {} error: {:#?}", LOGGER_PREFIX.cyan().bold(), &download_file_name, err);
-                    None
-                }
-            };
-
-            if content.is_none() {
-                return result;
-            }
-
-            let content = content.unwrap();
-            let output_file_path = Download::get_output_file(&options, &download_file_name);
-            println!("{} download file path: {}", LOGGER_PREFIX.cyan().bold(), output_file_path.as_path().to_string_lossy().to_string());
-
-            let overwrite = if options.overwrite.is_none() { true } else { options.overwrite.unwrap() };
-            let mut has_need_download = true;
-
-            if output_file_path.exists() {
-                let size = fs::metadata(&output_file_path).unwrap().len();
-                if size == content.len() as u64 {
-                    has_need_download = overwrite
-                }
-            }
-
-            if !has_need_download {
-                println!("{} file has exists, skip !", LOGGER_PREFIX.cyan().bold());
-                return result;
-            }
-
-            let dest_file = match File::create(output_file_path) {
-                Ok(file) => Some(file),
-                Err(err) => {
-                    println!("{} download file {} error: {:#?}", LOGGER_PREFIX.cyan().bold(), &download_file_name, err);
-                    None
-                }
-            };
-
-            if dest_file.is_none() {
-                return result;
-            }
-
-            let mut dest_file = dest_file.unwrap();
-            let success = match io::copy(&mut content.as_ref(), &mut dest_file) {
-                Ok(_) => true,
-                Err(err) => {
-                    println!("{} download file {} error: {:#?}", LOGGER_PREFIX.cyan().bold(), &download_file_name, err);
-                    false
-                }
-            };
-
-            if !success {
-                return result;
-            }
-
-            result.success = true;
-            println!("{} download file {} successfully !", LOGGER_PREFIX.cyan().bold(), &download_file_name.cyan().bold());
-            return result;
-        } else {
-            println!("{} download file {} failed with status code: {}", LOGGER_PREFIX.cyan().bold(), &download_file_name.cyan().bold(), response.status());
-        }
-
-        return result
-    }
-
     /// 文件下载, 包含进度条
-    pub async fn download(options: DownloadOptions, progress: Option<&MultiProgress>) -> DownloadResult {
+    pub async fn download(options: DownloadOptions, progress: Option<&MultiProgress>) -> Result<DownloadResult, HttpError> {
         let mut result = DownloadResult::default();
         result.url = options.url.clone();
         result.dir = options.output_dir.clone().unwrap_or(String::new());
 
-        let (response, download_file_name) = Download::get_response(&options).await;
-        // println!("{} download_file_name: {}", LOGGER_PREFIX.cyan().bold(), &download_file_name.cyan().bold());
-        if response.is_none() || download_file_name.is_empty() {
-            return result;
-        }
-
+        let (mut response, download_file_name) = Download::get_response(&options).await?;
         result.file_name = download_file_name.clone();
-        let mut response = response.unwrap();
+
         if !response.status().is_success() {
             println!("{} download file {} failed with status code: {}", LOGGER_PREFIX.cyan().bold(), &download_file_name.cyan().bold(), response.status());
-            return result;
+            return Ok(result);
         }
 
         // 获取响应头中的文件大小
@@ -231,7 +121,7 @@ impl Download {
 
         if content_length == 0 {
             println!("{} url: {} the file on the server is empty !", LOGGER_PREFIX.cyan().bold(), &options.url);
-            return result;
+            return Ok(result);
         }
 
         let output_file_path = Download::get_output_file(&options, &download_file_name);
@@ -255,7 +145,7 @@ impl Download {
                 println!("{} file has exists, skip !", LOGGER_PREFIX.cyan().bold());
             }
             result.success = true;
-            return result;
+            return Ok(result);
         }
 
         let file = match File::create(&output_file_path) {
@@ -267,7 +157,7 @@ impl Download {
         };
 
         if file.is_none() {
-            return result;
+            return Ok(result);
         }
 
         let mut file = file.unwrap();
@@ -307,7 +197,7 @@ impl Download {
             };
 
             if !flag {
-                return result;
+                return Ok(result);
             }
 
             // 计算下载速度
@@ -322,25 +212,13 @@ impl Download {
         }
 
         pb.finish_with_message(" ");
-
-        let success = match file.sync_all() {
-            Ok(_) => true,
-            Err(err) => {
-                println!("{} download file {} error: {:#?}", LOGGER_PREFIX.cyan().bold(), &download_file_name, err);
-                false
-            }
-        };
-
-        if !success {
-            println!("{} download file {} failed !", LOGGER_PREFIX.cyan().bold(), &download_file_name.cyan().bold());
-            return result;
-        }
+        file.sync_all().map_err(|err| HttpError::Error(Box::new(err)))?;
 
         if progress.is_none() {
             println!("{} download file {} successfully !", LOGGER_PREFIX.cyan().bold(), &download_file_name.cyan().bold());
         }
 
         result.success = true;
-        return result;
+        return Ok(result);
     }
 }

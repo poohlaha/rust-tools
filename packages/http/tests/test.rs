@@ -2,7 +2,7 @@
 use tokio::runtime::Runtime;
 use http::options::HttpResponse;
 use http::options::Options;
-use http::client::HttpClient;
+use http::{client_send, client_send_form_data};
 
 #[test]
 fn test_http_get() {
@@ -17,7 +17,7 @@ fn test_http_get() {
             headers: None,
             timeout: None
         };
-        let response: HttpResponse = HttpClient::send(options, false).await;
+        let response: HttpResponse = client_send(options, false).await.unwrap();
         assert_eq!(response.status_code, 200);
     });
 }
@@ -43,7 +43,7 @@ fn test_http_post() {
             headers: None,
             timeout: None
         };
-        let response: HttpResponse = HttpClient::send(options, false).await;
+        let response: HttpResponse = client_send(options, false).await.unwrap();
         assert_eq!(response.status_code, 200);
     });
 }
@@ -64,6 +64,6 @@ fn test_http_form_data() {
         headers: None,
         timeout: None
     };
-    let response: HttpResponse = HttpClient::send_form_data(options);
+    let response: HttpResponse = client_send_form_data(options).unwrap();
     assert_eq!(response.status_code, 200);
 }

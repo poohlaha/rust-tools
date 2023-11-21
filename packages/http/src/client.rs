@@ -5,7 +5,7 @@ use std::fmt::Debug;
 use serde_json::Value;
 use reqwest::{Client, Method, RequestBuilder, StatusCode};
 use reqwest::header::{HeaderMap, HeaderName};
-use crate::options::Options;
+use crate::options::{HttpError, Options};
 use crate::options::HttpResponse;
 use std::time::Duration;
 use colored::*;
@@ -73,17 +73,12 @@ impl HttpClient {
     }
 
     /// 发送请求
-    pub async fn send(options: Options, is_form_submit: bool) -> HttpResponse {
+    pub async fn send(options: Options, is_form_submit: bool) -> Result<HttpResponse, HttpError> {
         println!("{} options: {:#?}", LOGGER_PREFIX.cyan().bold(), options);
 
         if options.url.is_empty() {
-            println!("{} {}", LOGGER_PREFIX.cyan().bold(), "url is empty".red().bold());
-            return HttpResponse {
-                status_code: 500,
-                headers: HashMap::new(),
-                body: Value::default(),
-                error: String::from("url is empty"),
-            };
+            println!("{} {}", LOGGER_PREFIX.cyan().bold(), "url is empty !".red().bold());
+            return Err(HttpError::Empty("url is empty !".to_string()));
         }
 
         // method
@@ -94,19 +89,8 @@ impl HttpClient {
         let client = Client::builder()
             .danger_accept_invalid_certs(true)
             // .danger_accept_invalid_hostnames(true)
-            .build();
+            .build().map_err(|err| HttpError::CreateClientError(Box::new(err)))?;
 
-        if client.is_err() {
-            println!("{} create http client error: {:#?} !", LOGGER_PREFIX.cyan().bold(), client.is_err());
-            return HttpResponse {
-                status_code: 500,
-                headers: HashMap::new(),
-                body: Value::default(),
-                error: String::from("create http client error !"),
-            };
-        }
-
-        let client = client.unwrap();
         let request: RequestBuilder = client.request(request_method, options.url);
         let mut request = request.timeout(Duration::from_secs(HttpClient::get_timeout(options.timeout)));
 
@@ -128,32 +112,20 @@ impl HttpClient {
             }
         }
 
-        return match request.headers(request_headers).send().await {
-            Ok(response) => {
-                let status = response.status();
-                let response_headers = response.headers().clone();
-                let body = response.text().await.unwrap_or("".to_string());
-                HttpClient::get_response(status, response_headers, body)
-            }
-            Err(error) => {
-                println!("{} send request error: {:#?}", LOGGER_PREFIX.cyan().bold(), error);
-                Self::get_error_response(500, &error)
-            }
-        };
+        let response = request.headers(request_headers).send().await.map_err(|err| HttpError::ResponseError(Box::new(err)))?;
+        let status = response.status();
+        let response_headers = response.headers().clone();
+        let body = response.text().await.unwrap_or("".to_string());
+        Ok(HttpClient::get_response(status, response_headers, body))
     }
 
     /// 通过 multipart/form-data 提交, 使用 blocking
-    pub fn send_form_data(options: Options) -> HttpResponse {
+    pub fn send_form_data(options: Options) -> Result<HttpResponse, HttpError> {
         println!("{} options: {:#?}", LOGGER_PREFIX.cyan().bold(), options);
 
         if options.url.is_empty() {
-            println!("{} {}", LOGGER_PREFIX.cyan().bold(), "url is empty".red().bold());
-            return HttpResponse {
-                status_code: 500,
-                headers: HashMap::new(),
-                body: Value::default(),
-                error: String::from("url is empty"),
-            };
+            println!("{} {}", LOGGER_PREFIX.cyan().bold(), "url is empty !".red().bold());
+            return Err(HttpError::Empty("url is empty !".to_string()));
         }
 
         // method
@@ -164,19 +136,8 @@ impl HttpClient {
         let client = reqwest::blocking::Client::builder()
             .danger_accept_invalid_certs(true)
             // .danger_accept_invalid_hostnames(true)
-            .build();
+            .build().map_err(|err| HttpError::CreateClientError(Box::new(err)))?;
 
-        if client.is_err() {
-            println!("{} create http client error: {:#?} !", LOGGER_PREFIX.cyan().bold(), client.is_err());
-            return HttpResponse {
-                status_code: 500,
-                headers: HashMap::new(),
-                body: Value::default(),
-                error: String::from("create http client error !"),
-            };
-        }
-
-        let client = client.unwrap();
         let request = client.request(request_method, options.url);
         let mut request = request.timeout(Duration::from_secs(HttpClient::get_timeout(options.timeout)));
 
@@ -195,18 +156,11 @@ impl HttpClient {
             request = request.multipart(form);
         }
 
-        return match request.headers(request_headers).send() {
-            Ok(response) => {
-                let status = response.status();
-                let response_headers = response.headers().clone();
-                let body = response.text().unwrap_or("".to_string());
-                HttpClient::get_response(status, response_headers, body)
-            }
-            Err(error) => {
-                println!("{} send request error: {:#?}", LOGGER_PREFIX.cyan().bold(), error);
-                Self::get_error_response(500, &error)
-            }
-        };
+        let response = request.headers(request_headers).send().map_err(|err| HttpError::ResponseError(Box::new(err)))?;
+        let status = response.status();
+        let response_headers = response.headers().clone();
+        let body = response.text().unwrap_or("".to_string());
+        Ok(HttpClient::get_response(status, response_headers, body))
     }
 
     /// 获取 response
