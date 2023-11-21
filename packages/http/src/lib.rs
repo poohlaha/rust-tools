@@ -12,6 +12,9 @@ use options::Options;
 
 const LOGGER_PREFIX: &str = "[Http]: ";
 
+/// form data options
+pub type HttpFormData = reqwest::blocking::multipart::Form;
+
 /// send
 /// is_form_submit: use form submit
 pub async fn client_send(opts: Options, is_form_submit: bool) -> Result<HttpResponse, HttpError> {

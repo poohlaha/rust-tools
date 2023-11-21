@@ -72,12 +72,12 @@ async fn main() {
 Create an HTTP `form-data` request:
 
 ```rust
-use request_http::client_send_form_data;
+use request_http::{client_send_form_data, HttpFormData};
 
 #[tokio::main]
 async fn main() {
     let url = String::from("https://example.com/api/upload");
-    let form = reqwest::blocking::multipart::Form::new()
+    let form = HttpFormData::new()
         .text("userId", "10074")
         .text("version", "1.0")
         .file("files", "/usr/local/text.zip")
