@@ -4,3 +4,5 @@ Cargo.lock
 output.txt
 .idea
 
+packages/images/src/main.rs
+

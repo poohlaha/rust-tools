@@ -1,11 +1,11 @@
 // ! 设置图片默认值
 
-use colored::*;
 use crate::LOGGER_PREFIX;
+use colored::*;
 
 #[derive(Clone, Debug)]
 pub struct Factor {
-    pub quality: f32, // 品质: 0 - 100
+    pub quality: f32,    // 品质: 0 - 100
     pub size_ratio: f32, // 压缩比例: 0 - 1
 }
 
@@ -13,10 +13,7 @@ impl Factor {
     #[allow(dead_code)]
     pub fn new(quality: f32, size_ratio: f32) -> Self {
         if (quality > 0. && quality <= 100.) && (size_ratio > 0. && size_ratio <= 1.) {
-            Self {
-                quality,
-                size_ratio,
-            }
+            Self { quality, size_ratio }
         } else {
             panic!("{} Wrong Factor argument!", LOGGER_PREFIX.cyan().bold());
         }
@@ -33,9 +30,6 @@ impl Factor {
 
 impl Default for Factor {
     fn default() -> Self {
-        Self {
-            quality: 80.,
-            size_ratio: 0.8
-        }
+        Self { quality: 80., size_ratio: 0.8 }
     }
 }

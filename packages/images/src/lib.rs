@@ -1,6 +1,5 @@
+pub mod compressor;
+pub mod factor;
+pub mod img;
 
-mod compressor;
-mod factor;
-mod img;
-
-const LOGGER_PREFIX: &str = "[Images]: ";
+const LOGGER_PREFIX: &str = "[Images Compressor]: ";

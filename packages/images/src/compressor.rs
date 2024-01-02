@@ -1,23 +1,23 @@
 //! 图片压缩
 
-use std::ffi::OsStr;
-use std::{fs, thread};
-use std::path::{PathBuf};
-use std::sync::{Arc};
-use std::time::Instant;
-use crossbeam_queue::SegQueue;
 use crate::factor::Factor;
-use fs_extra::dir;
 use crate::img::Img;
-use colored::*;
 use crate::LOGGER_PREFIX;
+use colored::*;
+use crossbeam_queue::SegQueue;
+use fs_extra::dir;
+use std::ffi::OsStr;
+use std::path::PathBuf;
+use std::sync::Arc;
+use std::time::Instant;
+use std::{fs, thread};
 
 pub struct Compressor {
     pub factor: Factor,
     pub original_path: PathBuf,
     pub destination_path: PathBuf,
     pub thread_count: u32,
-    pub image_size: u64
+    pub image_size: u64,
 }
 
 #[derive(Debug)]
@@ -30,17 +30,16 @@ pub struct CompressorArgs {
 }
 
 pub struct CompressorFile {
-    pub file_name: String, // 文件名
-    pub extension: String, // 后缀
-    pub file_stem: String, // 后缀
-    pub file_size: u64, // 文件大小
-    pub path: String, // 全路径
+    pub file_name: String,     // 文件名
+    pub extension: String,     // 后缀
+    pub file_stem: String,     // 后缀
+    pub file_size: u64,        // 文件大小
+    pub path: String,          // 全路径
     pub relative_path: String, // 相对路径
 }
 
 const FILE_LIST: [&str; 4] = ["jpg", "jpeg", "png", "gif"];
 impl Compressor {
-
     pub fn new(args: CompressorArgs) -> Compressor {
         let factor = args.factor;
         let thread_count = args.thread_count;
@@ -50,7 +49,7 @@ impl Compressor {
             original_path: PathBuf::from(args.origin),
             destination_path: PathBuf::from(args.dest),
             thread_count: if factor.is_none() { 1 } else { thread_count.unwrap() },
-            image_size: args.image_size
+            image_size: args.image_size,
         }
     }
 
@@ -76,11 +75,11 @@ impl Compressor {
                             file_name: file_name.clone(),
                             file_stem: file_stem.to_string(),
                             file_size: size,
-                            relative_path: relative_path.to_string()
+                            relative_path: relative_path.to_string(),
                         })
                     }
 
-                    continue
+                    continue;
                 }
 
                 if size > self.image_size * 1024 {
@@ -91,7 +90,7 @@ impl Compressor {
                             file_name,
                             file_stem: file_stem.to_string(),
                             file_size: size,
-                            relative_path: relative_path.to_string()
+                            relative_path: relative_path.to_string(),
                         })
                     }
                 }
@@ -143,14 +142,14 @@ impl Compressor {
 
         let mut handles = Vec::new();
 
-        for _ in 0 .. self.thread_count {
+        for _ in 0..self.thread_count {
             let arc_queue = Arc::clone(&queue);
             let arc_args = Arc::new(Compressor {
                 factor: self.factor.clone(),
                 original_path: self.original_path.clone(),
                 destination_path: self.destination_path.clone(),
                 thread_count: self.thread_count.clone(),
-                image_size: self.image_size
+                image_size: self.image_size,
             });
 
             let handle = thread::spawn(move || {
@@ -168,7 +167,6 @@ impl Compressor {
         let elapsed_time = format!("{:.2?}", start_time.elapsed()).magenta().bold();
         println!("{} Finished compress {} after {}", LOGGER_PREFIX.cyan().bold(), "images".cyan().bold(), elapsed_time);
     }
-
 }
 
 fn process(queue: Arc<SegQueue<CompressorFile>>, compressor: &Compressor) {
@@ -183,7 +181,7 @@ fn process(queue: Arc<SegQueue<CompressorFile>>, compressor: &Compressor) {
                 let file_stem = &file.file_stem;
                 let temp_file_name = String::from(file_stem) + "_tmp." + &file.extension;
                 let tmp_relative_path = &file.relative_path.replace(&file.file_name, &temp_file_name);
-                let new_dest_tmp_file_path =  &compressor.destination_path.join(tmp_relative_path);
+                let new_dest_tmp_file_path = &compressor.destination_path.join(tmp_relative_path);
 
                 compress(&file_path, &new_dest_path, &new_dest_tmp_file_path, &file, compressor);
             }
@@ -197,9 +195,9 @@ fn compress(origin_file_path: &PathBuf, dest_file_path: &PathBuf, dest_tmp_file_
     let file_relative_path = &file.relative_path;
     let extension = &file.extension;
 
-    let parent = match dest_file_path.parent()  {
+    let parent = match dest_file_path.parent() {
         Some(parent) => Some(parent),
-        None => None
+        None => None,
     };
 
     if parent.is_none() {

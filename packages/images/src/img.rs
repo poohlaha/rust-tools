@@ -1,16 +1,16 @@
 //! 图片操作
 
+use crate::compressor::CompressorFile;
+use crate::LOGGER_PREFIX;
+use colored::*;
+use image::imageops::FilterType;
+use imagequant::Attributes;
+use lodepng::decode32_file;
+use mozjpeg::{ColorSpace, Compress, ScanMode};
 use std::fs;
 use std::fs::File;
 use std::io::Write;
-use colored::*;
-use std::path::{PathBuf};
-use image::imageops::FilterType;
-use imagequant::{Attributes};
-use lodepng::decode32_file;
-use mozjpeg::{ColorSpace, Compress, ScanMode};
-use crate::compressor::CompressorFile;
-use crate::LOGGER_PREFIX;
+use std::path::PathBuf;
 
 pub struct Img;
 
@@ -18,11 +18,10 @@ pub struct Img;
 pub struct ImgResized {
     rgb8: Vec<u8>,
     pub(crate) width: usize,
-    pub(crate) height: usize
+    pub(crate) height: usize,
 }
 
 impl Img {
-
     pub fn resize(file_path: &PathBuf, resize_ratio: f32) -> Option<ImgResized> {
         let img = match image::open(file_path) {
             Ok(img) => Some(img),
@@ -51,7 +50,7 @@ impl Img {
             rgb8: resized_img.into_rgb8().into_vec(),
             width: resized_width,
             height: resized_height,
-        })
+        });
     }
 
     /// 压缩 jpg
@@ -73,9 +72,7 @@ impl Img {
             if line > target_height - 1 {
                 break;
             }
-            comp.write_scanlines(
-                &resized_img_data[line * target_width * 3..(line + 1) * target_width * 3],
-            );
+            comp.write_scanlines(&resized_img_data[line * target_width * 3..(line + 1) * target_width * 3]);
             line += 1;
         }
         comp.finish_compress();
@@ -143,7 +140,6 @@ impl Img {
         let mut attribute = Attributes::new();
         attribute.set_speed(10).unwrap(); // 设置压缩速度，可以根据需要进行调整
         attribute.set_quality(quality as u8, 99).unwrap(); // 设置品质最小值和最大值, 默认为 0 - 100
-
 
         let img = match attribute.new_image(&*bitmap.buffer, width, height, 0.0) {
             Ok(img) => Some(img),
@@ -333,7 +329,7 @@ impl Img {
                 Ok(_) => {
                     println!("{} compress `{}` file: {} success !", LOGGER_PREFIX.cyan().bold(), name.cyan().bold(), &file.relative_path.cyan().bold());
                     true
-                },
+                }
                 Err(err) => {
                     println!("{} regenerate `{}` image: {} error: {:#?}", LOGGER_PREFIX.cyan().bold(), name.cyan().bold(), &file.relative_path.red().bold(), err);
                     false
@@ -341,7 +337,7 @@ impl Img {
             };
 
             if !is_ok {
-                return false
+                return false;
             }
 
             // 不是同一目录, 需要拷贝原来文件到目录
@@ -350,7 +346,7 @@ impl Img {
                     Ok(_) => {
                         println!("{} compress `{}` file: {} success !", LOGGER_PREFIX.cyan().bold(), name.cyan().bold(), &file.relative_path.cyan().bold());
                         true
-                    },
+                    }
                     Err(err) => {
                         println!("{} regenerate `{}` image: {} error: {:#?}", LOGGER_PREFIX.cyan().bold(), name.cyan().bold(), &file.relative_path.red().bold(), err);
                         false
@@ -367,7 +363,7 @@ impl Img {
                 Ok(_) => {
                     println!("{} compress `{}` file: {} success !", LOGGER_PREFIX.cyan().bold(), name.cyan().bold(), &file.relative_path.cyan().bold());
                     true
-                },
+                }
                 Err(err) => {
                     println!("{} regenerate `{}` image: {} error: {:#?}", LOGGER_PREFIX.cyan().bold(), name.cyan().bold(), &file.relative_path.red().bold(), err);
                     false
