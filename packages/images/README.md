@@ -22,7 +22,6 @@ fn main() {
         size_ratio: 0.8, // // 压缩比例: 0 - 1
     };
 
-    
     let args = CompressorArgs {
         factor: Some(factor),
         origin: "/usr/local/images/outputs".to_string(),
@@ -32,7 +31,7 @@ fn main() {
     };
 
     let compressor = Compressor::new(args);
-    compressor.compress();
+    compressor.compress().ok();
 }
 ```
 

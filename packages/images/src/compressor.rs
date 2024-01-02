@@ -99,10 +99,10 @@ impl Compressor {
     }
 
     /// compress
-    pub fn compress(self) {
+    pub fn compress(self) -> Result<bool, String> {
         if !self.original_path.exists() {
             println!("{} original path: {} is not exists", LOGGER_PREFIX.cyan().bold(), self.original_path.as_path().to_string_lossy().to_string().magenta().bold());
-            return;
+            return Err(String::from("original path is Empty !"));
         }
 
         println!("{} Starting compress {} ...", LOGGER_PREFIX.cyan().bold(), "images".cyan().bold());
@@ -115,7 +115,7 @@ impl Compressor {
         if files.len() == 0 {
             let elapsed_time = format!("{:.2?}", start_time.elapsed()).magenta().bold();
             println!("{} Finished compress {} after {}", LOGGER_PREFIX.cyan().bold(), "images".cyan().bold(), elapsed_time);
-            return;
+            return Err(String::from("original path has no files !"));
         }
 
         // 删除目录文件
@@ -127,9 +127,9 @@ impl Compressor {
             match dir::create(dest_dir, true) {
                 Ok(_) => {}
                 Err(err) => {
-                    let err_msg = format!("operate dest dir: {}, error", dest_dir.as_path().to_string_lossy().to_string());
+                    // let err_msg = format!("operate dest dir: {}, error", dest_dir.as_path().to_string_lossy().to_string());
                     println!("{} operate dest dir: {} error: {:#?}", LOGGER_PREFIX.cyan().bold(), dest_dir.as_path().to_string_lossy().to_string().magenta().bold(), err);
-                    panic!("{}", err_msg)
+                    return Err(format!("operate dest dir: {} error: {}", dest_dir.as_path().to_string_lossy().to_string(), err.to_string()));
                 }
             }
         }
@@ -166,6 +166,8 @@ impl Compressor {
         println!("{} Compress complete {} !", LOGGER_PREFIX.cyan().bold(), "success".cyan().bold());
         let elapsed_time = format!("{:.2?}", start_time.elapsed()).magenta().bold();
         println!("{} Finished compress {} after {}", LOGGER_PREFIX.cyan().bold(), "images".cyan().bold(), elapsed_time);
+
+        Ok(true)
     }
 }
 
