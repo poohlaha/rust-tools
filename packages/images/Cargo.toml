@@ -1,0 +1,24 @@
+[package]
+name = "images-compressor"
+version = "1.0.1"
+edition = "2021"
+authors = ["poohlaha"]
+license = "MIT/Apache-2.0"
+description = "compress pictures, such as `png`、`jpg`、`jpeg`、`git`."
+homepage = "https://github.com/poohlaha/rust-tools/tree/main/packages/images"
+repository = "https://github.com/poohlaha/rust-tools/tree/main/packages/images"
+readme = "README.md"
+keywords = ["image", "compressor", "png", "jpg", "gif"]
+
+[dependencies]
+colored = "2.0"
+image = "0.24"
+gif = "0.12"
+imagequant = "4.2"
+lodepng = "3.9"
+mozjpeg = "0.9.2"
+crossbeam-queue = "0.3"
+fs_extra = "1.3"
+
+[package.metadata.docs.rs]
+targets = ["src/lib.rs"]

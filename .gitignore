@@ -1,0 +1,10 @@
+/target
+pkg
+Cargo.lock
+output.txt
+.idea
+
+packages/images/src/main.rs
+
+.DS_Store
+packages/excel

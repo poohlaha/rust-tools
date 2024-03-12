@@ -1,0 +1,28 @@
+[package]
+name = "minimize"
+version = "0.1.0"
+edition = "2021"
+authors = ["poohlaha"]
+license = "MIT/Apache-2.0"
+description = "minimize css、html、js、json."
+homepage = "https://github.com/poohlaha/rust-tools/tree/main/packages/minimize"
+repository = "https://github.com/poohlaha/rust-tools/tree/main/packages/minimize"
+readme = "README.md"
+keywords = ["minimize", "css", "js", "html", "json"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+colored = "2.0"
+minify-html = "0.15"
+lightningcss = "1.0.0-alpha.52"
+rayon = "1.7"
+serde = { version = "1.0", features = ["derive"] }
+glob = "0.3"
+minifier = "0.3"
+swc_ecma_minifier = "0.191"
+swc_ecma_parser = "0.142"
+swc_common = "0.33"
+swc_ecma_transforms_base = "0.136"
+swc_ecma_codegen = "0.147"
+swc_ecma_visit = "0.97"
