@@ -221,13 +221,9 @@ impl SftpUpload {
         SftpHandler::log_info(&format!("uploading file {} and set file permission success !", zip_file_path), log_func.clone());
 
         // 2. 解压
-        let unzip_dir = Path::new(&server_temp_path_str).join(file_name);
-        let unzip_dir_str;
-        if unzip_dir.ends_with(".zip") {
-            unzip_dir_str = unzip_dir.file_stem().unwrap_or(OsStr::new("")).to_string_lossy().to_string();
-        } else {
-            unzip_dir_str = unzip_dir.to_string_lossy().to_string();
-        }
+        let file_name_stem = Path::new(file_name).file_stem().unwrap_or(OsStr::new("")).to_string_lossy().to_string();
+        let unzip_dir = Path::new(&server_temp_path_str).join(file_name_stem);
+        let unzip_dir_str= unzip_dir.to_string_lossy().to_string();
 
         info!("server unzip dir: {}", &unzip_dir_str);
         let server_file_path = PathBuf::from(&server_temp_path_str).join(&zip_file_name);
