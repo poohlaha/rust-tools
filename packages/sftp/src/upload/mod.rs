@@ -222,7 +222,7 @@ impl SftpUpload {
 
         // 2. 解压
         let file_name_stem = Path::new(file_name).file_stem().unwrap_or(OsStr::new("")).to_string_lossy().to_string();
-        let unzip_dir = Path::new(&server_temp_path_str).join(file_name_stem);
+        let unzip_dir = Path::new(&server_temp_path_str).join(&file_name_stem);
         let unzip_dir_str= unzip_dir.to_string_lossy().to_string();
 
         info!("server unzip dir: {}", &unzip_dir_str);
@@ -238,7 +238,7 @@ impl SftpUpload {
         };
 
         // 3. 比较发布
-        let server_file_dir = Path::new(&upload.server_dir).join(file_name);
+        let server_file_dir = Path::new(&upload.server_dir).join(&file_name_stem);
 
         // 获取发布命令
         let result = match Self::touch_publish_commands(sftp, &upload, &server_file_dir.to_string_lossy().to_string(), &unzip_dir_str, log_func.clone()) {
