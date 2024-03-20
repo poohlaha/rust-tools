@@ -207,6 +207,10 @@ impl SftpUpload {
         }
 
         let server_temp_path_str = server_temp_path.to_string_lossy().to_string(); // 远程临时存放目录
+
+        // 判断目录是否存在
+        SftpHandler::check_dir(&sftp, &server_temp_path_str)?;
+
         let zip_file_name = Path::new(zip_file_path).file_name().unwrap_or(OsStr::new("")).to_string_lossy().to_string();
 
         // 1. 上传
