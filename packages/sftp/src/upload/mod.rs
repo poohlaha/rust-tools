@@ -229,6 +229,7 @@ impl SftpUpload {
             unzip_dir_str = unzip_dir.to_string_lossy().to_string();
         }
 
+        info!("server unzip dir: {}", &unzip_dir_str);
         let server_file_path = PathBuf::from(&server_temp_path_str).join(&zip_file_name);
         match Self::uncompress_zip(session, sftp, &server_temp_path_str, &zip_file_name, &unzip_dir_str, log_func.clone()) {
             Ok(_) => {}
