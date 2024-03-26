@@ -7,14 +7,6 @@ pub struct Factor {
 }
 
 impl Factor {
-    #[allow(dead_code)]
-    pub fn new(quality: f32, size_ratio: f32) -> Self {
-        if (quality > 0. && quality <= 100.) && (size_ratio > 0. && size_ratio <= 1.) {
-            Self { quality, size_ratio }
-        } else {
-            panic!("Wrong Factor argument!");
-        }
-    }
 
     pub fn quality(&self) -> f32 {
         return self.quality;
@@ -22,6 +14,14 @@ impl Factor {
 
     pub fn size_ratio(&self) -> f32 {
         return self.size_ratio;
+    }
+
+    pub fn get_default_quality(&self) -> f32 {
+        return 80.0
+    }
+
+    pub fn get_default_size_ratio(&self) -> f32 {
+        return 0.8
     }
 }
 

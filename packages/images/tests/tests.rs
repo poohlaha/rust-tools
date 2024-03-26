@@ -18,6 +18,6 @@ fn test_image_compressor() {
         image_size: 0,
     };
 
-    let success = Compressor::new(args).compress().unwrap();
+    let success = Compressor::new(args).compress(|str|{}).unwrap();
     assert_eq!(success, true)
 }

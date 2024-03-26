@@ -1,6 +1,6 @@
 //! 图片操作
 
-use crate::compressor::CompressorFile;
+use crate::compressor::{CompressorFile, log};
 use image::imageops::FilterType;
 use imagequant::Attributes;
 use lodepng::decode32_file;
@@ -9,6 +9,7 @@ use std::fs;
 use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 use colored::Colorize;
 
 pub struct Img;
@@ -21,11 +22,14 @@ pub struct ImgResized {
 }
 
 impl Img {
-    pub fn resize(file_path: &PathBuf, resize_ratio: f32) -> Option<ImgResized> {
+    pub fn resize<F>(file_path: &PathBuf, resize_ratio: f32, log_func: Arc<Mutex<F>>) -> Option<ImgResized>
+        where
+            F: FnMut(&str)
+    {
         let img = match image::open(file_path) {
             Ok(img) => Some(img),
             Err(err) => {
-                println!("open image: {} error: {:#?}", file_path.as_path().to_string_lossy().to_string().red().bold(), err);
+                log(&format!("open image: {} error: {:#?}", file_path.as_path().to_string_lossy().to_string().red().bold(), err), log_func.clone());
                 None
             }
         };
@@ -53,7 +57,10 @@ impl Img {
     }
 
     /// 压缩 jpg
-    pub fn compress_jpg(img_resized: ImgResized, quality: f32, dest_file_path: &PathBuf, file_relative_path: &str) -> bool {
+    pub fn compress_jpg<F>(img_resized: ImgResized, quality: f32, dest_file_path: &PathBuf, file_relative_path: &str, log_func: Arc<Mutex<F>>) -> bool
+        where
+            F: FnMut(&str)
+    {
         let target_width = img_resized.width;
         let target_height = img_resized.height;
         let resized_img_data = img_resized.rgb8;
@@ -79,7 +86,7 @@ impl Img {
         let compressed = match comp.data_to_vec() {
             Ok(compressed) => Some(compressed),
             Err(_) => {
-                println!("compress image error !");
+                log("compress image error !", log_func.clone());
                 None
             }
         };
@@ -93,7 +100,7 @@ impl Img {
         let output_file = match File::create(dest_file_path.clone()) {
             Ok(file) => Some(file),
             Err(err) => {
-                println!("create file path: {} error: {:#?}", dest_file_path.as_path().to_string_lossy().to_string(), err);
+                log(&format!("create file path: {} error: {:#?}", dest_file_path.as_path().to_string_lossy().to_string(), err), log_func.clone());
                 None
             }
         };
@@ -106,11 +113,11 @@ impl Img {
 
         let flag = match output_file.write_all(&compressed) {
             Ok(_) => {
-                println!("compress `JPG` file: {} success !", file_relative_path.cyan().bold());
+                log(&format!("compress `JPG` file: {} success !", file_relative_path.cyan().bold()), log_func.clone());
                 true
             }
             Err(err) => {
-                println!("compress `JPG` file: {} error: {:#?}", file_relative_path.red().bold(), err);
+                log(&format!("compress `JPG` file: {} error: {:#?}", file_relative_path.red().bold(), err), log_func.clone());
                 false
             }
         };
@@ -119,11 +126,14 @@ impl Img {
     }
 
     /// 压缩 png
-    pub fn compress_png(file_path: &PathBuf, quality: f32, dest_file_path: &PathBuf, dest_tmp_file_path: &PathBuf, file: &CompressorFile, is_same_dir: bool) -> bool {
+    pub fn compress_png<F>(file_path: &PathBuf, quality: f32, dest_file_path: &PathBuf, dest_tmp_file_path: &PathBuf, file: &CompressorFile, is_same_dir: bool, log_func: Arc<Mutex<F>>) -> bool
+        where
+            F: FnMut(&str)
+    {
         let bitmap = match decode32_file(file_path) {
             Ok(bitmap) => Some(bitmap),
             Err(err) => {
-                println!("open image: {} error: {:#?}", file_path.as_path().to_string_lossy().to_string().red().bold(), err);
+                log(&format!("open image: {} error: {:#?}", file_path.as_path().to_string_lossy().to_string().red().bold(), err), log_func.clone());
                 None
             }
         };
@@ -143,7 +153,7 @@ impl Img {
         let img = match attribute.new_image(&*bitmap.buffer, width, height, 0.0) {
             Ok(img) => Some(img),
             Err(err) => {
-                println!("handle `PNG` image: {} error: {:#?}", &file.relative_path.red().bold(), err);
+                log(&format!("handle `PNG` image: {} error: {:#?}", &file.relative_path.red().bold(), err), log_func.clone());
                 None
             }
         };
@@ -157,7 +167,7 @@ impl Img {
         let result = match attribute.quantize(&mut img) {
             Ok(result) => Some(result),
             Err(err) => {
-                println!("handle `PNG` image: {} error: {:#?}", &file.relative_path.red().bold(), err);
+                log(&format!("handle `PNG` image: {} error: {:#?}", &file.relative_path.red().bold(), err), log_func.clone());
                 None
             }
         };
@@ -171,7 +181,7 @@ impl Img {
         let flag = match result.set_dithering_level(1.0) {
             Ok(_) => true,
             Err(err) => {
-                println!("handle `PNG` image: {} error: {:#?}", &file.relative_path.red().bold(), err);
+                log(&format!("handle `PNG` image: {} error: {:#?}", &file.relative_path.red().bold(), err), log_func.clone());
                 false
             }
         };
@@ -183,7 +193,7 @@ impl Img {
         let value = match result.remapped(&mut img) {
             Ok(value) => Some(value),
             Err(err) => {
-                println!("handle `PNG` image: {} error: {:#?}", &file.relative_path.red().bold(), err);
+                log(&format!("handle `PNG` image: {} error: {:#?}", &file.relative_path.red().bold(), err), log_func.clone());
                 None
             }
         };
@@ -216,7 +226,7 @@ impl Img {
         let flag = match lodepng::encode_file(dest_tmp_file_path, &rgba_pixels, width, height, lodepng::ColorType::RGBA, 8) {
             Ok(_) => true,
             Err(err) => {
-                println!("regenerate `PNG` image: {} error: {:#?}", &file.relative_path.red().bold(), err);
+                log(&format!("regenerate `PNG` image: {} error: {:#?}", &file.relative_path.red().bold(), err), log_func.clone());
                 false
             }
         };
@@ -225,15 +235,18 @@ impl Img {
             return false;
         }
 
-        return Img::validate_image(dest_tmp_file_path, dest_file_path, file, is_same_dir, "PNG");
+        return Img::validate_image(dest_tmp_file_path, dest_file_path, file, is_same_dir, "PNG", log_func.clone());
     }
 
     /// 压缩 gif
-    pub fn compress_gif(file_path: &PathBuf, dest_file_path: &PathBuf, dest_tmp_file_path: &PathBuf, file: &CompressorFile, is_same_dir: bool) -> bool {
+    pub fn compress_gif<F>(file_path: &PathBuf, dest_file_path: &PathBuf, dest_tmp_file_path: &PathBuf, file: &CompressorFile, is_same_dir: bool, log_func: Arc<Mutex<F>>) -> bool
+        where
+            F: FnMut(&str)
+    {
         let img = match File::open(file_path) {
             Ok(img) => Some(img),
             Err(err) => {
-                println!("open `GIF` image: {} error: {:#?}", file_path.as_path().to_string_lossy().to_string().red().bold(), err);
+                log(&format!("open `GIF` image: {} error: {:#?}", file_path.as_path().to_string_lossy().to_string().red().bold(), err), log_func.clone());
                 None
             }
         };
@@ -249,7 +262,7 @@ impl Img {
         let decoder = match options.read_info(img) {
             Ok(decoder) => Some(decoder),
             Err(err) => {
-                println!("regenerate `GIF` image: {} error: {:#?}", &file.relative_path.red().bold(), err);
+                log(&format!("regenerate `GIF` image: {} error: {:#?}", &file.relative_path.red().bold(), err), log_func.clone());
                 None
             }
         };
@@ -267,7 +280,7 @@ impl Img {
         let encoder = match gif::Encoder::new(&mut output_file, screen_width, screen_height, &global_pal) {
             Ok(encoder) => Some(encoder),
             Err(err) => {
-                println!("regenerate `GIF` image: {} error: {:#?}", &file.relative_path.red().bold(), err);
+                log(&format!("regenerate `GIF` image: {} error: {:#?}", &file.relative_path.red().bold(), err), log_func.clone());
                 None
             }
         };
@@ -301,7 +314,7 @@ impl Img {
             let success = match encoder.write_frame(&new_frame) {
                 Ok(_) => true,
                 Err(err) => {
-                    println!("regenerate `GIF` image: {} error: {:#?}", &file.relative_path.red().bold(), err);
+                    log(&format!("regenerate `GIF` image: {} error: {:#?}", &file.relative_path.red().bold(), err), log_func.clone());
                     false
                 }
             };
@@ -313,24 +326,27 @@ impl Img {
             frame_number += 1;
         }
 
-        return Img::validate_image(dest_tmp_file_path, dest_file_path, file, is_same_dir, "GIF");
+        return Img::validate_image(dest_tmp_file_path, dest_file_path, file, is_same_dir, "GIF", log_func.clone());
     }
 
     /// 校验图片, 判断压缩后图片是不是大于原图片, 如果大于, 则取消压缩
-    fn validate_image(dest_tmp_file_path: &PathBuf, dest_file_path: &PathBuf, file: &CompressorFile, is_same_dir: bool, name: &str) -> bool {
+    fn validate_image<F>(dest_tmp_file_path: &PathBuf, dest_file_path: &PathBuf, file: &CompressorFile, is_same_dir: bool, name: &str, log_func: Arc<Mutex<F>>) -> bool
+        where
+            F: FnMut(&str)
+    {
         // 判断压缩后图片是不是大于原图片, 如果大于, 则取消压缩
         let tmp_file_size = fs::metadata(dest_tmp_file_path).unwrap().len();
         let success;
         if tmp_file_size >= file.file_size {
-            println!("regenerate `{}` file size: {} bytes, big", name.cyan().bold(), tmp_file_size.to_string().red().bold());
+            log(&format!("regenerate `{}` file size: {} bytes, big", name.cyan().bold(), tmp_file_size.to_string().red().bold()), log_func.clone());
             // 删除临时文件
             let is_ok = match fs_extra::file::remove(dest_tmp_file_path.as_path().to_string_lossy().to_string()) {
                 Ok(_) => {
-                    println!("compress `{}` file: {} success !", name.cyan().bold(), &file.relative_path.cyan().bold());
+                    log(&format!("compress `{}` file: {} success !", name.cyan().bold(), &file.relative_path.cyan().bold()), log_func.clone());
                     true
                 }
                 Err(err) => {
-                    println!("regenerate `{}` image: {} error: {:#?}", name.cyan().bold(), &file.relative_path.red().bold(), err);
+                    log(&format!("regenerate `{}` image: {} error: {:#?}", name.cyan().bold(), &file.relative_path.red().bold(), err), log_func.clone());
                     false
                 }
             };
@@ -343,11 +359,11 @@ impl Img {
             if !is_same_dir {
                 success = match fs_extra::file::copy(&file.path, dest_file_path.as_path().to_string_lossy().to_string(), &fs_extra::file::CopyOptions::new()) {
                     Ok(_) => {
-                        println!("compress `{}` file: {} success !", name.cyan().bold(), &file.relative_path.cyan().bold());
+                        log(&format!("compress `{}` file: {} success !", name.cyan().bold(), &file.relative_path.cyan().bold()), log_func.clone());
                         true
                     }
                     Err(err) => {
-                        println!("regenerate `{}` image: {} error: {:#?}", name.cyan().bold(), &file.relative_path.red().bold(), err);
+                        log(&format!("regenerate `{}` image: {} error: {:#?}", name.cyan().bold(), &file.relative_path.red().bold(), err), log_func.clone());
                         false
                     }
                 };
@@ -360,11 +376,11 @@ impl Img {
             options = options.overwrite(true);
             success = match fs_extra::file::move_file(dest_tmp_file_path.as_path().to_string_lossy().to_string(), dest_file_path.as_path().to_string_lossy().to_string(), &options) {
                 Ok(_) => {
-                    println!("compress `{}` file: {} success !", name.cyan().bold(), &file.relative_path.cyan().bold());
+                    log(&format!("compress `{}` file: {} success !", name.cyan().bold(), &file.relative_path.cyan().bold()), log_func.clone());
                     true
                 }
                 Err(err) => {
-                    println!("regenerate `{}` image: {} error: {:#?}", name.cyan().bold(), &file.relative_path.red().bold(), err);
+                    log(&format!("regenerate `{}` image: {} error: {:#?}", name.cyan().bold(), &file.relative_path.red().bold(), err), log_func.clone());
                     false
                 }
             };
