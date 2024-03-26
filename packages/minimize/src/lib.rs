@@ -1,2 +1,2 @@
-pub mod minify;
 mod ecma;
+pub mod minify;

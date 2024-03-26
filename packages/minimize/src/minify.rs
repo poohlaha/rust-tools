@@ -1,9 +1,6 @@
 //! css/html/js 文件压缩
 
-use std::ffi::OsStr;
-use std::{fs, io};
-use std::io::{Read, Write};
-use std::path::{Path, PathBuf};
+use crate::ecma::EcmaMinifier;
 use colored::Colorize;
 use glob::{glob_with, MatchOptions};
 use lightningcss::printer::PrinterOptions;
@@ -13,7 +10,11 @@ use minify_html::{minify, Cfg};
 use rayon::prelude::*;
 use rayon::ThreadPoolBuilder;
 use serde::{Deserialize, Serialize};
-use crate::ecma::EcmaMinifier;
+use std::ffi::OsStr;
+use std::io::{Read, Write};
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
+use std::{fs, io};
 
 pub struct Minimize;
 
@@ -26,39 +27,32 @@ pub struct Args {
     pub validate_js: bool, // 是否进行 JS 检查, 如果要检查就要使用 swc 的包, 需要牺牲性能
 
     #[serde(rename = "optimizationCss")]
-    pub optimization_css: bool // 是否做 CSS 优化, 如果要优化，会合并多个属性, 并做代码简化
+    pub optimization_css: bool, // 是否做 CSS 优化, 如果要优化，会合并多个属性, 并做代码简化
 }
 
-const DEFAULT_EXCLUDES: [&str; 8] = [
-    "**/*.min.js",
-    "**/*.min.css",
-    "**/*.umd.js",
-    "**/*.common.js",
-    "**/*.esm.js",
-    "**/*.amd.js",
-    "**/*.iife.js",
-    "**/*.cjs.js"
-];
+const DEFAULT_EXCLUDES: [&str; 8] = ["**/*.min.js", "**/*.min.css", "**/*.umd.js", "**/*.common.js", "**/*.esm.js", "**/*.amd.js", "**/*.iife.js", "**/*.cjs.js"];
 
 // 默认后缀
-const DEFAULT_SUFFIX: [&str;4] = [
-    "html",
-    "js",
-    "css",
-    "json"
-];
+const DEFAULT_SUFFIX: [&str; 4] = ["html", "js", "css", "json"];
 
 impl Minimize {
-
-    pub fn exec(args: &Args) -> bool {
+    pub fn exec<F>(args: &Args, log_func: F) -> bool
+    where
+        F: FnMut(&str) + Send,
+    {
         // dir
         let dir = Path::new(&args.dir);
-        println!("minimize dir: {:#?}", dir);
+
+        let log_func = Arc::new(Mutex::new(log_func));
+
+        // 输出日志
+        Self::log(&format!("minimize dir: {:#?}", dir), log_func.clone());
 
         let mut dir_str = dir.to_string_lossy().to_string();
-        println!("minimize relative path: {:?}", &dir_str);
+        Self::log(&format!("minimize relative path: {}", dir_str), log_func.clone());
+
         if !dir.exists() {
-            println!("minimize dir failed, `{:#?}` not exists !", dir);
+            Self::log(&format!("minimize dir failed, `{:#?}` not exists !", dir), log_func.clone());
             return false;
         }
 
@@ -67,7 +61,7 @@ impl Minimize {
 
         // excludes
         let excludes: Vec<String> = Self::get_excludes(args.excludes.clone());
-        println!("minimize excludes: {:#?}", excludes);
+        Self::log(&format!("minimize excludes: {:#?}", excludes), log_func.clone());
 
         let options = MatchOptions {
             case_sensitive: false,
@@ -82,12 +76,8 @@ impl Minimize {
                 for entry in entries {
                     if let Ok(path) = entry {
                         let exclude_path_str = path.as_path().to_string_lossy().to_string();
-                        if excludes.iter().any(|pattern| {
-                            glob::Pattern::new(pattern).map(|pat| {
-                                pat.matches_path_with(&path.as_path(), options.clone())
-                            }).unwrap_or(false)
-                        }) {
-                            println!("exclude path: `{}`!", &exclude_path_str);
+                        if excludes.iter().any(|pattern| glob::Pattern::new(pattern).map(|pat| pat.matches_path_with(&path.as_path(), options.clone())).unwrap_or(false)) {
+                            Self::log(&format!("exclude path: `{}`", exclude_path_str), log_func.clone());
                             continue;
                         }
 
@@ -101,39 +91,40 @@ impl Minimize {
                 paths
             }
             Err(err) => {
-                println!("minimize error: {:#?} !", err);
+                Self::log(&format!("minimize error: {:#?}", err), log_func.clone());
                 Vec::new()
             }
         };
 
         if paths.is_empty() {
-            println!("can not found files !");
+            Self::log("can not found files !", log_func.clone());
             return false;
         }
 
         // 开启并行任务
-        Self::par(paths, args);
+        Self::par(paths, args, log_func.clone());
         return true;
     }
 
     // 开启并行任务
-    fn par(paths: Vec<PathBuf>, args: &Args) {
-        println!("found files count: {}", paths.len().to_string().magenta().bold());
-        let pool = ThreadPoolBuilder::new()
-            .num_threads(4)
-            .stack_size(20 * 1024 * 1024)
-            .build().unwrap();
+    fn par<F>(paths: Vec<PathBuf>, args: &Args, log_func: Arc<Mutex<F>>)
+    where
+        F: FnMut(&str) + Send,
+    {
+        Self::log(&format!("found files count: {}", paths.len().to_string().magenta().bold()), log_func.clone());
+
+        let pool = ThreadPoolBuilder::new().num_threads(4).stack_size(20 * 1024 * 1024).build().unwrap();
 
         pool.install(|| {
             paths.par_iter().for_each(|path| {
-                let result = Self::minify_file(path, args.validate_js, args.optimization_css);
+                let result = Self::minify_file(path, args.validate_js, args.optimization_css, log_func.clone());
                 match result {
                     Ok(_) => {
                         let path_str = path.to_string_lossy().to_string();
-                        println!("{} Minimize File: {}", "✔".green().bold(), &path_str);
+                        Self::log(&format!("{} Minimize File: {}", "✔".green().bold(), &path_str), log_func.clone());
                     }
                     Err(err) => {
-                        println!("minimize path: `{:?}` error: {:#?} !", &path, err);
+                        Self::log(&format!("minimize path: `{:?}` error: {:#?}", &path, err), log_func.clone());
                     }
                 }
             });
@@ -141,7 +132,10 @@ impl Minimize {
     }
 
     // 压缩代码
-    fn minify_file(path: &PathBuf, validate_js: bool, optimization_css: bool) -> io::Result<()> {
+    fn minify_file<F>(path: &PathBuf, validate_js: bool, optimization_css: bool, log_func: Arc<Mutex<F>>) -> io::Result<()>
+    where
+        F: FnMut(&str),
+    {
         let file_extension = path.extension().unwrap_or(OsStr::new("")).to_str().unwrap_or("");
 
         let mut file = fs::File::open(path)?;
@@ -149,7 +143,8 @@ impl Minimize {
         file.read_to_string(&mut code)?;
 
         let mut minified = Vec::new();
-        if file_extension == DEFAULT_SUFFIX[0] { // html
+        if file_extension == DEFAULT_SUFFIX[0] {
+            // html
             let mut cfg = Cfg::new();
             cfg.remove_bangs = false;
             cfg.remove_processing_instructions = false;
@@ -159,13 +154,15 @@ impl Minimize {
             cfg.minify_css = true;
             cfg.minify_js = true;
             minified = minify(code.as_bytes(), &cfg);
-        } else if file_extension == DEFAULT_SUFFIX[1] { // js
+        } else if file_extension == DEFAULT_SUFFIX[1] {
+            // js
             if validate_js {
-                minified = EcmaMinifier::exec(path)
+                minified = EcmaMinifier::exec(path, log_func.clone())
             } else {
                 minified = minifier::js::minify(&code).to_string().into_bytes();
             }
-        }  else if file_extension == DEFAULT_SUFFIX[2] { // css
+        } else if file_extension == DEFAULT_SUFFIX[2] {
+            // css
             // 此处使用 minifier::css::minify 会把中间的空格去除
             /*
             minified = match minifier::css::minify(&code) {
@@ -176,13 +173,14 @@ impl Minimize {
                 }
             }
              */
-            minified = Self::minify_css(path, &code, optimization_css);
-        }  else if file_extension == DEFAULT_SUFFIX[3] { // json
+            minified = Self::minify_css(path, &code, optimization_css, log_func.clone());
+        } else if file_extension == DEFAULT_SUFFIX[3] {
+            // json
             minified = minifier::json::minify(&code).to_string().into_bytes();
         }
 
         if minified.is_empty() {
-            return Ok(())
+            return Ok(());
         }
 
         let mut file = fs::File::create(path)?;
@@ -192,29 +190,26 @@ impl Minimize {
         Ok(())
     }
 
-
     fn get_excludes(excludes: Vec<String>) -> Vec<String> {
         let mut default_excludes: Vec<String> = DEFAULT_EXCLUDES.iter().map(|&s| s.to_string()).collect();
         default_excludes.extend(excludes);
-        return default_excludes
+        return default_excludes;
     }
 
     /// 压缩 css
-    fn minify_css(path: &PathBuf, code: &str, optimization_css: bool) -> Vec<u8> {
+    fn minify_css<F>(path: &PathBuf, code: &str, optimization_css: bool, log_func: Arc<Mutex<F>>) -> Vec<u8>
+    where
+        F: FnMut(&str),
+    {
         let get_result = |stylesheet: StyleSheet| {
-            let result = stylesheet.to_css(PrinterOptions {
-                minify: true,
-                ..PrinterOptions::default()
-            });
+            let result = stylesheet.to_css(PrinterOptions { minify: true, ..PrinterOptions::default() });
             return match result {
-                Ok(result) => {
-                    result.code.into_bytes()
-                }
+                Ok(result) => result.code.into_bytes(),
                 Err(err) => {
-                    println!("minimize path: `{:?}` error: {:#?} !", &path, err);
+                    Self::log(&format!("minimize path: `{:?}` error: {:#?}", &path, err), log_func.clone());
                     Vec::new()
                 }
-            }
+            };
         };
 
         let stylesheet = StyleSheet::parse(&code, ParserOptions::default());
@@ -233,23 +228,30 @@ impl Minimize {
 
                 if optimization_css {
                     return match stylesheet.minify(options) {
-                        Ok(_) => {
-                            get_result(stylesheet)
-                        },
+                        Ok(_) => get_result(stylesheet),
                         Err(err) => {
-                            println!("minimize path: `{:?}` error: {:#?} !", &path, err);
+                            Self::log(&format!("minimize path: `{:?}` error: {:#?}", &path, err), log_func.clone());
                             Vec::new()
                         }
-                    }
-
+                    };
                 } else {
-                    return get_result(stylesheet)
+                    return get_result(stylesheet);
                 }
-            },
+            }
             Err(err) => {
-                println!("minimize path: `{:?}` error: {:#?} !", &path, err);
+                Self::log(&format!("minimize path: `{:?}` error: {:#?}", &path, err), log_func.clone());
                 Vec::new()
             }
-        }
+        };
+    }
+
+    /// 记录日志
+    pub fn log<F>(msg: &str, log_func: Arc<Mutex<F>>)
+    where
+        F: FnMut(&str),
+    {
+        println!("{}", msg);
+        let mut log_func = log_func.lock().unwrap();
+        (*log_func)(msg);
     }
 }
