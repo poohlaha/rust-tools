@@ -47,7 +47,7 @@ impl Compressor {
             factor: if factor.is_none() { Factor::default() } else { factor.clone().unwrap() },
             original_path: PathBuf::from(args.origin),
             destination_path: PathBuf::from(args.dest),
-            thread_count: if factor.is_none() { 1 } else { thread_count.unwrap() },
+            thread_count: if thread_count.is_none() { 1 } else { thread_count.unwrap() },
             image_size: args.image_size,
         }
     }
