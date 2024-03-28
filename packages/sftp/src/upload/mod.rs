@@ -385,6 +385,7 @@ impl SftpUpload {
 
             result.host = server.host.clone();
             result.file_count = temp_files.len() as u64;
+            result.file_list = Vec::new();
             result.need_increment = false;
             result.exec_commands = cmds;
             return result
@@ -422,6 +423,7 @@ impl SftpUpload {
         SftpHandler::log_info(&format!("difference file count: {}", differences.len()), log_func.clone());
 
         result.file_count = differences.len() as u64; // 设置发布文件个数
+        result.file_list = differences.clone().iter().map(|d| d.relative_path.clone()).collect();
 
         let remove_cmds = Self::remove_no_used_files_in_dir(&files, &temp_files, file_dir, temp_file_dir, log_func.clone());
         result.delete_file_count = remove_cmds.len() as u64; // 设置删除文件个数

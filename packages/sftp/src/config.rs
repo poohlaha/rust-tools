@@ -51,6 +51,7 @@ impl ValidateCopy {
 pub struct SftpUploadResult {
     pub host: String,
     pub file_count: u64, // 发布的文件个数
+    pub file_list: Vec<String>, // 发布的文件集合, 只有增量发布时才有值
     pub exec_commands: Vec<String>, // 执行的命令集
     pub delete_file_count: u64, // 删除的文件个数
     pub need_increment: bool, // 是否增量发布
