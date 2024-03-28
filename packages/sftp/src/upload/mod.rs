@@ -30,6 +30,8 @@ impl SftpUpload {
     where
         F: FnMut(&str)
     {
+        info!("exec upload args: {:#?}", &upload);
+
         if server.is_empty() {
             let msg = "exec upload failed, one of `host`、`port`、`username` and `password` server items is empty !";
             info!("{}", msg);
@@ -86,7 +88,7 @@ impl SftpUpload {
         })?;
 
         // 文件上传和发布
-        let result = Self::upload_and_publish(&session, &sftp, &upload, &zip_file_path, &file_name, log_func.clone())?;
+        let result = Self::upload_and_publish(&session, &sftp, &server, &upload, &zip_file_path, &file_name, log_func.clone())?;
         Ok(result)
     }
 
@@ -193,7 +195,7 @@ impl SftpUpload {
     }
 
     /// 文件上传
-    fn upload_and_publish<F>(session: &Session, sftp: &Sftp, upload: &Upload, zip_file_path: &str, file_name: &str, log_func: Arc<Mutex<F>>) -> Result<SftpUploadResult, String>
+    fn upload_and_publish<F>(session: &Session, sftp: &Sftp, server: &Server, upload: &Upload, zip_file_path: &str, file_name: &str, log_func: Arc<Mutex<F>>) -> Result<SftpUploadResult, String>
     where
         F: FnMut(&str)
     {
@@ -241,7 +243,7 @@ impl SftpUpload {
         let server_file_dir = Path::new(&upload.server_dir).join(&file_name_stem);
 
         // 获取发布命令
-        let result = match Self::touch_publish_commands(sftp, &upload, &server_file_dir.to_string_lossy().to_string(), &unzip_dir_str, log_func.clone()) {
+        let result = match Self::touch_publish_commands(sftp, server, &upload, &server_file_dir.to_string_lossy().to_string(), &unzip_dir_str, log_func.clone()) {
             Ok(result) => {
                 result
             }
@@ -347,7 +349,7 @@ impl SftpUpload {
     /// 发布
     /// 判断是不是增量发布
     /// 非增量发布, 需要比较文件夹内的文件是否一致, 如果不一致则替换
-    fn touch_publish_commands<F>(sftp: &Sftp, upload: &Upload, file_dir: &str, temp_file_dir: &str, log_func: Arc<Mutex<F>>) -> Result<SftpUploadResult, String>
+    fn touch_publish_commands<F>(sftp: &Sftp, server: &Server, upload: &Upload, file_dir: &str, temp_file_dir: &str, log_func: Arc<Mutex<F>>) -> Result<SftpUploadResult, String>
     where
         F: FnMut(&str)
     {
@@ -381,6 +383,7 @@ impl SftpUpload {
             cmds.push(format!("rm -rf {}", file_dir)); // 删除原来的文件目录
             cmds.push(format!("mv {} {}", temp_file_dir, &upload.server_dir)); // 移动临时目录到原来的文件目录
 
+            result.host = server.host.clone();
             result.file_count = temp_files.len() as u64;
             result.need_increment = false;
             result.exec_commands = cmds;
@@ -394,6 +397,7 @@ impl SftpUpload {
 
         // 2. 当 need_increment 为 false 时, 使用全量发布(全量)
         if !upload.need_increment {
+            SftpHandler::log_info(&format!("upload field `need_increment` is false, full publish, file count: {} ...", temp_files.len()), log_func.clone());
             return Ok(get_full_publish_cmds())
         }
 
@@ -403,12 +407,15 @@ impl SftpUpload {
 
         // 3. 没有文件, 则取全量发布(全量)
         if files.len() == 0 {
+            SftpHandler::log_info(&format!("read no files, full publish, file count: {} ...", temp_files.len()), log_func.clone());
             return Ok(get_full_publish_cmds())
         }
 
         // 4. 当 need_increment 为 true 时, 使用增量发布(增量)
+        SftpHandler::log_info("use increment ...", log_func.clone());
         let mut commands: Vec<String> = Vec::new();
         let mut result = SftpUploadResult::default();
+        result.host = server.host.clone();
 
         // 用临时目录和比较原来目录进行比较, 获取不同的文件
         let differences = Self::get_compare_file(sftp, &files, &temp_files, file_dir, temp_file_dir, log_func.clone());
@@ -431,6 +438,7 @@ impl SftpUpload {
             commands.extend(remove_cmds)
         }
 
+        result.need_increment = true;
         result.exec_commands = commands;
         Ok(result)
     }

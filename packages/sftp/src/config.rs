@@ -49,6 +49,7 @@ impl ValidateCopy {
 /// 文件上传返回结果
 #[derive(Debug, Default, Clone)]
 pub struct SftpUploadResult {
+    pub host: String,
     pub file_count: u64, // 发布的文件个数
     pub exec_commands: Vec<String>, // 执行的命令集
     pub delete_file_count: u64, // 删除的文件个数
