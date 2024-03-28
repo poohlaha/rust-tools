@@ -30,7 +30,8 @@ impl SftpUpload {
     where
         F: FnMut(&str)
     {
-        info!("exec upload args: {:#?}", &upload);
+        let log_func = Arc::new(Mutex::new(log_func));
+        SftpHandler::log_info(&format!("exec upload args: {:#?}", &upload), log_func.clone());
 
         if server.is_empty() {
             let msg = "exec upload failed, one of `host`、`port`、`username` and `password` server items is empty !";
@@ -67,8 +68,6 @@ impl SftpUpload {
             return Err(Error::convert_string(&msg));
         }
 
-        let log_func = Arc::new(Mutex::new(log_func));
-
         // 输出日志
         SftpHandler::log_info(&format!("get upload filename: {}", file_name), log_func.clone());
 
@@ -76,10 +75,14 @@ impl SftpUpload {
         let file_path = PathBuf::from(&upload.dir).join(&file_name);
 
         // 压缩目录
+        SftpHandler::log_info("compress upload dir ...", log_func.clone());
         let zip_file_path = Self::compress_upload_dir(&upload, &file_path, directories.clone(), files.clone())?;
+
+        SftpHandler::log_info("rename file upload path ...", log_func.clone());
         let zip_file_path = Self::rename_file_upload_path(&zip_file_path)?; // 临时文件目录
 
         // 连接服务器
+        SftpHandler::log_info("create session ...", log_func.clone());
         let session = SftpHandler::connect(&server)?;
         let sftp = session.sftp().map_err(|err| {
             let msg = format!("exec upload error: {:#?}", err);
@@ -199,6 +202,8 @@ impl SftpUpload {
     where
         F: FnMut(&str)
     {
+        SftpHandler::log_info("upload and publish ...", log_func.clone());
+
         // 获取远程临时存放目录
         let server_dir = &upload.server_dir.trim();
         let mut server_temp_path = PathBuf::from(server_dir);
@@ -211,6 +216,7 @@ impl SftpUpload {
         let server_temp_path_str = server_temp_path.to_string_lossy().to_string(); // 远程临时存放目录
 
         // 判断目录是否存在
+        SftpHandler::log_info("check dir ...", log_func.clone());
         SftpHandler::check_dir(&sftp, &server_temp_path_str)?;
 
         let zip_file_name = Path::new(zip_file_path).file_name().unwrap_or(OsStr::new("")).to_string_lossy().to_string();
@@ -353,6 +359,8 @@ impl SftpUpload {
     where
         F: FnMut(&str)
     {
+        SftpHandler::log_info("touch publish commands ...", log_func.clone());
+
         // 判断两个目录是否存在
         let temp_file_path = Path::new(temp_file_dir);
         let file_file_path = Path::new(file_dir);
@@ -706,6 +714,7 @@ impl SftpUpload {
     where
         F: FnMut(&str)
     {
+        SftpHandler::log_info("exec command ...", log_func.clone());
         let mut channel = SftpHandler::create_channel(session)?;
         let command = cmds.join(" \n ");
         SftpHandler::log_info(&format!("exec server command:\n {}", command), log_func.clone());
