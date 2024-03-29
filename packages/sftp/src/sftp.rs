@@ -1,29 +1,28 @@
 //! sftp
 
+use crate::config::Server;
+use crypto_hash::{hex_digest, Algorithm};
+use handlers::error::Error;
+use handlers::file::FileHandler;
+use indicatif::{ProgressBar, ProgressStyle};
+use log::{error, info};
+use ssh2::{Channel, FileStat, Session, Sftp};
 use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpStream};
 use std::path::Path;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use crypto_hash::{Algorithm, hex_digest};
-use indicatif::{ProgressBar, ProgressStyle};
-use log::{error, info};
-use ssh2::{Channel, FileStat, Session, Sftp};
-use handlers::error::Error;
-use handlers::file::FileHandler;
-use crate::config::Server;
 
 pub struct SftpHandler;
 
 const DEFAULT_TIMEOUT: u64 = 10;
 
 impl SftpHandler {
-
     /// 连接服务器
     pub fn connect<F>(server: &Server, log_func: Arc<Mutex<F>>) -> Result<Session, String>
-        where
-            F: FnMut(&str)
+    where
+        F: FnMut(&str),
     {
         let address = format!("{}:{}", &server.host, server.port);
         let socket = SocketAddr::from_str(&address).map_err(|err| {
@@ -77,8 +76,8 @@ impl SftpHandler {
 
     /// 文件上传
     pub(crate) fn upload<F>(sftp: &Sftp, file_path: &str, dest_dir: &str, file_name: &str, log_func: Arc<Mutex<F>>) -> Result<(), String>
-        where
-            F: FnMut(&str)
+    where
+        F: FnMut(&str),
     {
         if !Path::new(file_path).exists() {
             let msg = format!("upload dir failed, file path: {} not exists !", &file_path);
@@ -128,14 +127,18 @@ impl SftpHandler {
 
         // 设置文件权限
         Self::log_info(&format!("begin to set file `{}` permission ...", file_path), log_func.clone());
-        sftp.setstat(&remote_file_path, FileStat {
-            size: None,
-            uid: None,
-            gid: None,
-            perm: Some(0o777),
-            atime: None,
-            mtime: None,
-        }).map_err(|err| {
+        sftp.setstat(
+            &remote_file_path,
+            FileStat {
+                size: None,
+                uid: None,
+                gid: None,
+                perm: Some(0o777),
+                atime: None,
+                mtime: None,
+            },
+        )
+        .map_err(|err| {
             let msg = format!("set file permission `{}` error: {:#?}", &remote_file_path_str, err);
             error!("{}", &msg);
             Error::convert_string(&msg)
@@ -147,14 +150,14 @@ impl SftpHandler {
 
     /// 判断目录是否存在, 不存在则创建
     pub(crate) fn check_dir<F>(sftp: &Sftp, file_path: &str, log_func: Arc<Mutex<F>>) -> Result<(), String>
-        where
-            F: FnMut(&str)
+    where
+        F: FnMut(&str),
     {
         let path = Path::new(file_path);
 
         // 目录存在
         if sftp.stat(&path).is_ok() {
-            return Ok(())
+            return Ok(());
         }
 
         // 不存在则创建
@@ -172,11 +175,11 @@ impl SftpHandler {
     fn get_time_out(timeout: Option<u64>) -> Duration {
         if let Some(timeout) = timeout {
             if timeout > 0 {
-                return Duration::from_secs(timeout)
+                return Duration::from_secs(timeout);
             }
         }
 
-        return Duration::from_secs(DEFAULT_TIMEOUT)
+        return Duration::from_secs(DEFAULT_TIMEOUT);
     }
 
     /// 获取运程文件 hash 值
@@ -184,7 +187,7 @@ impl SftpHandler {
         // 文件不存在
         if !sftp.stat(Path::new(file_path)).is_ok() {
             info!("remote file path: `{}` is not exists!", file_path);
-            return Ok(String::new())
+            return Ok(String::new());
         }
 
         let mut file = sftp.open(Path::new(file_path)).map_err(|err| {
@@ -226,7 +229,7 @@ impl SftpHandler {
 
         let fields: Vec<&str> = output.trim().split(':').collect();
         if fields.len() >= 6 {
-            return Ok(fields[5].to_string())
+            return Ok(fields[5].to_string());
         }
 
         return Err(Error::convert_string(&format!("get user `{}` home dir failed !", username)));
@@ -246,7 +249,7 @@ impl SftpHandler {
 
     pub fn close_channel_in_err(channel: &mut Channel) {
         match Self::close_channel(channel) {
-            Ok(_) => {},
+            Ok(_) => {}
             Err(err) => {
                 error!("{}", err)
             }
@@ -270,7 +273,7 @@ impl SftpHandler {
             Error::convert_string(&msg)
         })?;
 
-        return Ok((String::from_utf8_lossy(&stdout).to_string(), String::from_utf8_lossy(&stderr).to_string()))
+        return Ok((String::from_utf8_lossy(&stdout).to_string(), String::from_utf8_lossy(&stderr).to_string()));
     }
 
     /// 关闭 channel
@@ -311,8 +314,8 @@ impl SftpHandler {
 
     /// 记录日志
     pub fn log_info<F>(msg: &str, log_func: Arc<Mutex<F>>)
-        where
-            F: FnMut(&str)
+    where
+        F: FnMut(&str),
     {
         info!("{}", msg);
         let mut log_func = log_func.lock().unwrap();
@@ -321,8 +324,8 @@ impl SftpHandler {
 
     /// 记录日志
     pub fn log_error<F>(msg: &str, log_func: Arc<Mutex<F>>)
-        where
-            F: FnMut(&str)
+    where
+        F: FnMut(&str),
     {
         error!("{}", msg);
         let mut log_func = log_func.lock().unwrap();

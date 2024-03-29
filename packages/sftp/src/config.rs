@@ -35,9 +35,9 @@ impl Upload {
 // 校验拷贝文件
 #[derive(Debug, Default, Clone)]
 pub struct ValidateCopy {
-    pub hash: String, // hash 值
+    pub hash: String,      // hash 值
     pub file_path: String, // 文件名全路径
-    pub dest_dir: String, // 服务器文件目录
+    pub dest_dir: String,  // 服务器文件目录
 }
 
 impl ValidateCopy {
@@ -50,9 +50,9 @@ impl ValidateCopy {
 #[derive(Debug, Default, Clone)]
 pub struct SftpUploadResult {
     pub host: String,
-    pub file_count: u64, // 发布的文件个数
-    pub file_list: Vec<String>, // 发布的文件集合, 只有增量发布时才有值
+    pub file_count: u64,            // 发布的文件个数
+    pub file_list: Vec<String>,     // 发布的文件集合, 只有增量发布时才有值
     pub exec_commands: Vec<String>, // 执行的命令集
-    pub delete_file_count: u64, // 删除的文件个数
-    pub need_increment: bool, // 是否增量发布
+    pub delete_file_count: u64,     // 删除的文件个数
+    pub need_increment: bool,       // 是否增量发布
 }

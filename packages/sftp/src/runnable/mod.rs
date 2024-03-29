@@ -1,24 +1,23 @@
 //! 远程文件对比，并运行读取日志
 
+use crate::config::{Server, ValidateCopy};
+use crate::sftp::SftpHandler;
+use handlers::error::Error;
+use log::{error, info};
+use ssh2::{Session, Sftp};
 use std::ffi::OsStr;
 use std::io::Read;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
-use log::{error, info};
-use ssh2::{Session, Sftp};
-use handlers::error::Error;
-use crate::config::{Server, ValidateCopy};
-use crate::sftp::SftpHandler;
 
 pub struct SftpRunnableHandler;
 
 impl SftpRunnableHandler {
-
     pub fn exec<F>(server: Server, copy: ValidateCopy, log_func: F) -> Result<String, String>
-        where
-            F: FnMut(&str)
+    where
+        F: FnMut(&str),
     {
         let log_func = Arc::new(Mutex::new(log_func));
 
@@ -76,8 +75,8 @@ impl SftpRunnableHandler {
 
     /// 比较文件是否一致, 不一致则拷贝文件
     fn validate_copy_file<F>(session: &Session, sftp: &Sftp, file_name: &str, username: &str, copy: &ValidateCopy, log_func: Arc<Mutex<F>>) -> Result<String, String>
-        where
-            F: FnMut(&str)
+    where
+        F: FnMut(&str),
     {
         SftpHandler::log_info("compare program ...", log_func.clone());
 
@@ -150,11 +149,7 @@ impl SftpRunnableHandler {
         }
 
         // 连接服务器
-        let session = if let Some(sess) = sess {
-            sess
-        } else {
-            SftpHandler::connect(&server, log_func.clone())?
-        };
+        let session = if let Some(sess) = sess { sess } else { SftpHandler::connect(&server, log_func.clone())? };
 
         let sftp = session.sftp().map_err(|err| {
             let msg = format!("exec runnable program error: {:#?}", err);
@@ -175,11 +170,7 @@ impl SftpRunnableHandler {
             SftpRunnableHandler::kill_pid(&session, &pid)?;
         }
 
-        let time = if let Some(secs) = secs {
-            secs
-        } else {
-            1
-        };
+        let time = if let Some(secs) = secs { secs } else { 1 };
 
         info!("start program {} ...", dest_file_path);
         let func = Arc::new(Mutex::new(func));
@@ -196,17 +187,13 @@ impl SftpRunnableHandler {
         let mut stdout = channel.stream(0); // 0表示标准输出
         let mut buffer = [0; 4096];
         loop {
-            let bytes = match stdout.read(&mut buffer){
-                Ok(bytes) => {
-                    Some(bytes)
-                }
-                Err(_) => {
-                    None
-                }
+            let bytes = match stdout.read(&mut buffer) {
+                Ok(bytes) => Some(bytes),
+                Err(_) => None,
             };
 
             if bytes.is_none() {
-                break
+                break;
             }
 
             let bytes = bytes.unwrap();
@@ -229,8 +216,8 @@ impl SftpRunnableHandler {
 
     /// 判断程序是否已启动 `ps aux | grep xxx | grep -v grep`
     pub fn judge_program_running<F>(session: &Session, file_name: &str, log_func: Arc<Mutex<F>>) -> Result<String, String>
-        where
-            F: FnMut(&str)
+    where
+        F: FnMut(&str),
     {
         SftpHandler::log_info("judge program running", log_func.clone());
         let mut channel = SftpHandler::create_channel(&session)?;
@@ -253,16 +240,13 @@ impl SftpRunnableHandler {
         })?;
 
         SftpHandler::log_info(&format!("judge program running output: {}", output), log_func.clone());
-        let pid: Option<&str> = output.lines().
-            filter(|line| line.contains(file_name) && !line.contains("grep"))
-            .next()
-            .and_then(|line| line.split_whitespace().nth(1));
+        let pid: Option<&str> = output.lines().filter(|line| line.contains(file_name) && !line.contains("grep")).next().and_then(|line| line.split_whitespace().nth(1));
         SftpHandler::close_channel(&mut channel)?;
         if let Some(pid) = pid {
-            return Ok(pid.to_string())
+            return Ok(pid.to_string());
         }
 
-        return Ok(String::new())
+        return Ok(String::new());
     }
 
     /// 杀掉进程
@@ -280,6 +264,4 @@ impl SftpRunnableHandler {
         SftpHandler::close_channel(&mut channel)?;
         Ok(())
     }
-
-
 }

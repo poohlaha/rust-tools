@@ -1,34 +1,33 @@
 //! 文件上传, 压缩, 比较等
 
-use std::ffi::OsStr;
-use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
-use log::{error, info};
-use ssh2::{Session, Sftp};
-use uuid::Uuid;
+use crate::config::{Server, SftpUploadResult, Upload};
 use crate::sftp::SftpHandler;
-use rayon::prelude::*;
-use regex::Regex;
 use handlers::error::Error;
 use handlers::file::FileHandler;
 use handlers::utils::Utils;
-use crate::config::{Server, SftpUploadResult, Upload};
+use log::{error, info};
+use rayon::prelude::*;
+use regex::Regex;
+use ssh2::{Session, Sftp};
+use std::ffi::OsStr;
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
+use uuid::Uuid;
 
 const UPLOAD_TEMP_DIR: &str = "__SFTP_TEMP_DIR__"; // 临时上传目录
 pub struct SftpUpload;
 
 #[derive(Debug, Default, Clone)]
 struct SftpUploadDifferent {
-    temp_path: String, // 临时文件全路径
-    old_path: String,  // 找到的文件全路径
+    temp_path: String,     // 临时文件全路径
+    old_path: String,      // 找到的文件全路径
     relative_path: String, // 文件的相对路径
 }
 
 impl SftpUpload {
-
     pub fn exec<F>(server: Server, upload: Upload, log_func: F) -> Result<SftpUploadResult, String>
     where
-        F: FnMut(&str)
+        F: FnMut(&str),
     {
         let log_func = Arc::new(Mutex::new(log_func));
         SftpHandler::log_info(&format!("exec upload args: {:#?}", &upload), log_func.clone());
@@ -53,7 +52,7 @@ impl SftpUpload {
         }
 
         // 读取目录
-        let (directories, files)= FileHandler::read_dir(&upload_dir_path)?;
+        let (directories, files) = FileHandler::read_dir(&upload_dir_path)?;
         if directories.is_empty() && files.is_empty() {
             let msg = format!("exec upload failed, upload dir: {} is empty !", &upload.dir);
             info!("{}", msg);
@@ -200,7 +199,7 @@ impl SftpUpload {
     /// 文件上传
     fn upload_and_publish<F>(session: &Session, sftp: &Sftp, server: &Server, upload: &Upload, zip_file_path: &str, file_name: &str, log_func: Arc<Mutex<F>>) -> Result<SftpUploadResult, String>
     where
-        F: FnMut(&str)
+        F: FnMut(&str),
     {
         SftpHandler::log_info("upload and publish ...", log_func.clone());
 
@@ -231,7 +230,7 @@ impl SftpUpload {
         // 2. 解压
         let file_name_stem = Path::new(file_name).file_stem().unwrap_or(OsStr::new("")).to_string_lossy().to_string();
         let unzip_dir = Path::new(&server_temp_path_str).join(&file_name_stem);
-        let unzip_dir_str= unzip_dir.to_string_lossy().to_string();
+        let unzip_dir_str = unzip_dir.to_string_lossy().to_string();
 
         info!("server unzip dir: {}", &unzip_dir_str);
         let server_file_path = PathBuf::from(&server_temp_path_str).join(&zip_file_name);
@@ -250,9 +249,7 @@ impl SftpUpload {
 
         // 获取发布命令
         let result = match Self::touch_publish_commands(sftp, server, &upload, &server_file_dir.to_string_lossy().to_string(), &unzip_dir_str, log_func.clone()) {
-            Ok(result) => {
-                result
-            }
+            Ok(result) => result,
             Err(err) => {
                 let msg = format!("publish {} error: {}", file_name, err);
                 error!("{}", &msg);
@@ -269,7 +266,7 @@ impl SftpUpload {
             // 输出日志
             SftpHandler::log_info("no commands need to exec !", log_func.clone());
             Self::end(sftp, session, &server_file_path, &unzip_dir_str, zip_file_path, log_func.clone());
-            return Ok(result)
+            return Ok(result);
         }
 
         match Self::exec_command(session, result.exec_commands.clone(), log_func.clone()) {
@@ -291,7 +288,7 @@ impl SftpUpload {
     /// 结束
     fn end<F>(sftp: &Sftp, session: &Session, server_file_path: &PathBuf, unzip_dir_str: &str, zip_file_path: &str, log_func: Arc<Mutex<F>>)
     where
-        F: FnMut(&str)
+        F: FnMut(&str),
     {
         SftpHandler::log_info(&format!("upload end, begin to delete local and server zip file: {:?} 、 unzip dir: {}", server_file_path, unzip_dir_str), log_func.clone());
 
@@ -318,7 +315,7 @@ impl SftpUpload {
         temp_file_path.set_file_name(&temp_file_name);
         temp_file_path.set_extension("zip");
 
-        let temp_file_str= temp_file_path.to_string_lossy().to_string();
+        let temp_file_str = temp_file_path.to_string_lossy().to_string();
         info!("get upload temp filename: {}", temp_file_name);
 
         // 重命名文件
@@ -329,7 +326,7 @@ impl SftpUpload {
     /// 远程解压 zip 包
     fn uncompress_zip<F>(session: &Session, sftp: &Sftp, upload_temp_dir: &str, zip_file_name: &str, unzip_dir_str: &str, log_func: Arc<Mutex<F>>) -> Result<(), String>
     where
-        F: FnMut(&str)
+        F: FnMut(&str),
     {
         let zip_file_path = Path::new(&upload_temp_dir).join(zip_file_name);
         let zip_file_path_str = zip_file_path.to_string_lossy().to_string();
@@ -341,9 +338,9 @@ impl SftpUpload {
         }
 
         let commands: Vec<String> = vec![
-          format!("cd {}", upload_temp_dir),
-          format!("rm -rf {}", unzip_dir_str),
-          format!("unzip {} -d {}", &zip_file_path_str, upload_temp_dir), // unzip 到指定目录 -o 为强制覆盖
+            format!("cd {}", upload_temp_dir),
+            format!("rm -rf {}", unzip_dir_str),
+            format!("unzip {} -d {}", &zip_file_path_str, upload_temp_dir), // unzip 到指定目录 -o 为强制覆盖
         ];
 
         SftpHandler::log_info(&format!("unzip: {} ... ", zip_file_path_str), log_func.clone());
@@ -357,7 +354,7 @@ impl SftpUpload {
     /// 非增量发布, 需要比较文件夹内的文件是否一致, 如果不一致则替换
     fn touch_publish_commands<F>(sftp: &Sftp, server: &Server, upload: &Upload, file_dir: &str, temp_file_dir: &str, log_func: Arc<Mutex<F>>) -> Result<SftpUploadResult, String>
     where
-        F: FnMut(&str)
+        F: FnMut(&str),
     {
         SftpHandler::log_info("touch publish commands ...", log_func.clone());
 
@@ -396,18 +393,18 @@ impl SftpUpload {
             result.file_list = Vec::new();
             result.need_increment = false;
             result.exec_commands = cmds;
-            return result
+            return result;
         };
 
         // 1. 目标目录不存在, 则直接采用全量发布(全量)
         if !sftp.stat(file_file_path).is_ok() {
-            return Ok(get_full_publish_cmds())
+            return Ok(get_full_publish_cmds());
         }
 
         // 2. 当 need_increment 为 false 时, 使用全量发布(全量)
         if !upload.need_increment {
             SftpHandler::log_info(&format!("upload field `need_increment` is false, full publish, file count: {} ...", temp_files.len()), log_func.clone());
-            return Ok(get_full_publish_cmds())
+            return Ok(get_full_publish_cmds());
         }
 
         // 读取目录文件列表
@@ -417,7 +414,7 @@ impl SftpUpload {
         // 3. 没有文件, 则取全量发布(全量)
         if files.len() == 0 {
             SftpHandler::log_info(&format!("read no files, full publish, file count: {} ...", temp_files.len()), log_func.clone());
-            return Ok(get_full_publish_cmds())
+            return Ok(get_full_publish_cmds());
         }
 
         // 4. 当 need_increment 为 true 时, 使用增量发布(增量)
@@ -456,7 +453,7 @@ impl SftpUpload {
     /// 获取两个目录的比较文件, 此处使用并行任务并没有快多少
     fn get_compare_file<F>(sftp: &Sftp, files: &Vec<String>, temp_files: &Vec<String>, file_dir: &str, temp_file_dir: &str, log_func: Arc<Mutex<F>>) -> Vec<SftpUploadDifferent>
     where
-        F: FnMut(&str)
+        F: FnMut(&str),
     {
         let mut differences: Vec<SftpUploadDifferent> = Vec::new();
 
@@ -534,7 +531,7 @@ impl SftpUpload {
 
         // 2. 比较去掉文件名后的相对路径是否一致, 比如 /usr/local/test.js 和 /usr/local/sample.js, parent 为 /usr/local/
         let file_relative_parent_path = Path::new(&file_relative_dir).parent().unwrap_or(&Path::new(""));
-        let temp_file_relative_parent_path =  Path::new(&temp_file_relative_dir).parent().unwrap_or(&Path::new(""));
+        let temp_file_relative_parent_path = Path::new(&temp_file_relative_dir).parent().unwrap_or(&Path::new(""));
 
         let file_relative_parent_str = file_relative_parent_path.to_string_lossy().to_string();
         let temp_file_relative_parent_str = temp_file_relative_parent_path.to_string_lossy().to_string();
@@ -549,7 +546,7 @@ impl SftpUpload {
         let temp_file_name_extension = Path::new(temp_file).extension().unwrap_or(OsStr::new("")).to_str().unwrap_or("");
 
         if &file_name == &temp_file_name {
-           return true
+            return true;
         }
 
         // 4. 比较文件名是否一致(带 hash 值)
@@ -566,7 +563,7 @@ impl SftpUpload {
     /// 比较两个文件的 hash 值是否一致
     fn compare_two_file_hash<F>(sftp: &Sftp, file: &str, temp_file: &str, log_func: Arc<Mutex<F>>) -> bool
     where
-        F: FnMut(&str)
+        F: FnMut(&str),
     {
         let file_hash = match SftpHandler::get_file_hash(sftp, file) {
             Ok(hash) => hash,
@@ -633,7 +630,7 @@ impl SftpUpload {
     /// 移除不用的文件
     fn remove_no_used_files_in_dir<F>(files: &Vec<String>, temp_files: &Vec<String>, file_dir: &str, temp_file_dir: &str, log_func: Arc<Mutex<F>>) -> Vec<String>
     where
-        F: FnMut(&str)
+        F: FnMut(&str),
     {
         let commands: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
 
@@ -642,7 +639,7 @@ impl SftpUpload {
             let file_relative_path = Path::new(&file).strip_prefix(file_dir).unwrap_or(&Path::new("")).to_string_lossy().to_string();
             let find_file = temp_files.par_iter().find_first(|f| {
                 let temp_file_relative_path = Path::new(f).strip_prefix(temp_file_dir).unwrap_or(&Path::new("")).to_string_lossy().to_string();
-                return &file_relative_path == &temp_file_relative_path
+                return &file_relative_path == &temp_file_relative_path;
             });
 
             // 未找到文件, 则需要删除
@@ -665,7 +662,7 @@ impl SftpUpload {
     /// 获取增量发布的命令
     fn get_increment_files_commands<F>(sftp: &Sftp, differences: &Vec<SftpUploadDifferent>, file_dir: &str, log_func: Arc<Mutex<F>>) -> Vec<String>
     where
-        F: FnMut(&str)
+        F: FnMut(&str),
     {
         let mut commands: Vec<String> = Vec::new();
 
@@ -689,11 +686,9 @@ impl SftpUpload {
     }
 
     /// 读取目录中的文件
-    fn read_files(sftp: &Sftp, dir: &str, files: &mut Vec<String>){
+    fn read_files(sftp: &Sftp, dir: &str, files: &mut Vec<String>) {
         let entries = match sftp.readdir(Path::new(dir)) {
-            Ok(entries) => {
-                entries
-            }
+            Ok(entries) => entries,
             Err(err) => {
                 info!("read dir `{}` files error: {:#?}", dir, err);
                 Vec::new()
@@ -712,7 +707,7 @@ impl SftpUpload {
 
     fn exec_command<F>(session: &Session, cmds: Vec<String>, log_func: Arc<Mutex<F>>) -> Result<(), String>
     where
-        F: FnMut(&str)
+        F: FnMut(&str),
     {
         SftpHandler::log_info("exec command ...", log_func.clone());
         let mut channel = SftpHandler::create_channel(session)?;
