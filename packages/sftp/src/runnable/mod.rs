@@ -16,7 +16,12 @@ pub struct SftpRunnableHandler;
 
 impl SftpRunnableHandler {
 
-    pub fn exec(server: Server, copy: ValidateCopy) -> Result<String, String> {
+    pub fn exec<F>(server: Server, copy: ValidateCopy, log_func: F) -> Result<String, String>
+        where
+            F: FnMut(&str)
+    {
+        let log_func = Arc::new(Mutex::new(log_func));
+
         if server.is_empty() {
             let msg = "exec runnable program failed, one of `host`、`port`、`username` and `password` server items is empty !";
             info!("{}", msg);
@@ -54,7 +59,7 @@ impl SftpRunnableHandler {
         }
 
         // 连接服务器
-        let session = SftpHandler::connect(&server)?;
+        let session = SftpHandler::connect(&server, log_func.clone())?;
         let sftp = session.sftp().map_err(|err| {
             let msg = format!("exec runnable program error: {:#?}", err);
             error!("{}", &msg);
@@ -62,7 +67,7 @@ impl SftpRunnableHandler {
         })?;
 
         // 文件校验并上传
-        let dest_file_path = Self::validate_copy_file(&session, &sftp, &file_name, &server.username, &copy)?;
+        let dest_file_path = Self::validate_copy_file(&session, &sftp, &file_name, &server.username, &copy, log_func.clone())?;
 
         // 断开连接
         SftpHandler::close_session(session)?;
@@ -70,23 +75,26 @@ impl SftpRunnableHandler {
     }
 
     /// 比较文件是否一致, 不一致则拷贝文件
-    fn validate_copy_file(session: &Session, sftp: &Sftp, file_name: &str, username: &str, copy: &ValidateCopy) -> Result<String, String> {
-        info!("compare program ...");
+    fn validate_copy_file<F>(session: &Session, sftp: &Sftp, file_name: &str, username: &str, copy: &ValidateCopy, log_func: Arc<Mutex<F>>) -> Result<String, String>
+        where
+            F: FnMut(&str)
+    {
+        SftpHandler::log_info("compare program ...", log_func.clone());
 
         // 放到用户主目录下
         let home_dir = SftpHandler::get_user_home_dir(&session, username)?;
-        info!("user home dir: {}", &home_dir);
+        SftpHandler::log_info("user home dir: {}", log_func.clone());
         let dest_dir = Path::new(&home_dir).join(&copy.dest_dir);
-        info!("server dest file dir: {:#?}", dest_dir);
+        SftpHandler::log_info(&format!("server dest file dir: {:#?}", dest_dir), log_func.clone());
 
         // 判断目录是否存在
-        SftpHandler::check_dir(&sftp, &dest_dir.as_path().to_string_lossy().to_string())?;
+        SftpHandler::check_dir(&sftp, &dest_dir.as_path().to_string_lossy().to_string(), log_func.clone())?;
 
         // 获取服务器文件的 hash 值
         let dest_file_path = dest_dir.join(&file_name).as_path().to_string_lossy().to_string();
         let is_hash_equal = match SftpHandler::get_file_hash(&sftp, &dest_file_path) {
             Ok(remote_file_hash) => {
-                info!("server dest file hash: {}, file hash: {}", &remote_file_hash, &copy.hash);
+                SftpHandler::log_info(&format!("server dest file hash: {}, file hash: {}", &remote_file_hash, &copy.hash), log_func.clone());
 
                 // 比较 hash 是否一致
                 if remote_file_hash.trim() == copy.hash.trim() {
@@ -96,7 +104,7 @@ impl SftpRunnableHandler {
                 }
             }
             Err(_) => {
-                error!("can not get file `{}` hash !", &dest_file_path);
+                SftpHandler::log_error(&format!("can not get file `{}` hash !", &dest_file_path), log_func.clone());
                 false
             }
         };
@@ -104,34 +112,37 @@ impl SftpRunnableHandler {
         // 如果程序存存在, 则判断是否已启动
         let mut pid = String::new();
         if sftp.stat(Path::new(&dest_file_path)).is_ok() {
-            pid = Self::judge_program_running(&session, &file_name)?;
+            pid = Self::judge_program_running(&session, &file_name, log_func.clone())?;
         }
 
-        info!("program pid: {}", pid);
+        SftpHandler::log_info(&format!("program pid: {}", pid), log_func.clone());
         // 上传文件
         if !is_hash_equal {
-            info!("begin to upload file: {}", &file_name);
+            SftpHandler::log_info(&format!("begin to upload file: {}", &file_name), log_func.clone());
 
             // 如果程序启动则结束进行
             if !pid.is_empty() {
                 Self::kill_pid(&session, &pid)?;
             }
 
-            SftpHandler::upload(&sftp, &copy.file_path, &dest_dir.as_path().to_string_lossy().to_string(), &file_name)?;
-            error!("upload file `{}` success", &file_name);
+            SftpHandler::upload(&sftp, &copy.file_path, &dest_dir.as_path().to_string_lossy().to_string(), &file_name, log_func.clone())?;
+            SftpHandler::log_info(&format!("upload file `{}` success", &file_name), log_func.clone());
         } else {
-            info!("compare program no different !")
+            SftpHandler::log_info("compare program no different !", log_func.clone());
         }
 
-        info!("compare program success ...");
+        SftpHandler::log_info("compare program success ...", log_func.clone());
         Ok(dest_file_path)
     }
 
     /// 运行程序, 如果程序已被杀死, 或者没有被杀死且 pid 为空, 则 启动程序
-    pub fn exec_program<F>(sess: Option<Session>, server: &Server, dest_file_path: &str, secs: Option<u64>, func: F) -> Result<(), String>
+    pub fn exec_program<F, D>(sess: Option<Session>, server: &Server, dest_file_path: &str, secs: Option<u64>, func: F, log_func: D) -> Result<(), String>
     where
-        F: FnMut(&str)
+        F: FnMut(&str),
+        D: FnMut(&str),
     {
+        let log_func = Arc::new(Mutex::new(log_func));
+
         if server.is_empty() {
             let msg = "exec runnable program failed, one of `host`、`port`、`username` and `password` server items is empty !";
             info!("{}", msg);
@@ -142,7 +153,7 @@ impl SftpRunnableHandler {
         let session = if let Some(sess) = sess {
             sess
         } else {
-            SftpHandler::connect(&server)?
+            SftpHandler::connect(&server, log_func.clone())?
         };
 
         let sftp = session.sftp().map_err(|err| {
@@ -156,7 +167,7 @@ impl SftpRunnableHandler {
         let mut pid = String::new();
         let file_name = Path::new(&dest_file_path).file_name().unwrap_or(OsStr::new("")).to_string_lossy().to_string();
         if sftp.stat(Path::new(&dest_file_path)).is_ok() {
-            pid = SftpRunnableHandler::judge_program_running(&session, &file_name)?;
+            pid = SftpRunnableHandler::judge_program_running(&session, &file_name, log_func.clone())?;
         }
 
         // 如果在运行，则直接结束
@@ -217,12 +228,15 @@ impl SftpRunnableHandler {
     }
 
     /// 判断程序是否已启动 `ps aux | grep xxx | grep -v grep`
-    pub fn judge_program_running(session: &Session, file_name: &str) -> Result<String, String> {
-        info!("judge program running");
+    pub fn judge_program_running<F>(session: &Session, file_name: &str, log_func: Arc<Mutex<F>>) -> Result<String, String>
+        where
+            F: FnMut(&str)
+    {
+        SftpHandler::log_info("judge program running", log_func.clone());
         let mut channel = SftpHandler::create_channel(&session)?;
 
         let cmd = format!("ps aux | grep {} | grep -v grep", file_name);
-        info!("judge program running command: {}", cmd);
+        SftpHandler::log_info(&format!("judge program running command: {}", cmd), log_func.clone());
         channel.exec(&cmd).map_err(|err| {
             let msg = format!("grep process `{}` error: {:#?}", file_name, err);
             error!("{}", &msg);
@@ -238,7 +252,7 @@ impl SftpRunnableHandler {
             Error::convert_string(&msg)
         })?;
 
-        info!("judge program running output: {}", output);
+        SftpHandler::log_info(&format!("judge program running output: {}", output), log_func.clone());
         let pid: Option<&str> = output.lines().
             filter(|line| line.contains(file_name) && !line.contains("grep"))
             .next()

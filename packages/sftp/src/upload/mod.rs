@@ -83,7 +83,7 @@ impl SftpUpload {
 
         // 连接服务器
         SftpHandler::log_info("create session ...", log_func.clone());
-        let session = SftpHandler::connect(&server)?;
+        let session = SftpHandler::connect(&server, log_func.clone())?;
         let sftp = session.sftp().map_err(|err| {
             let msg = format!("exec upload error: {:#?}", err);
             error!("{}", &msg);
@@ -217,14 +217,14 @@ impl SftpUpload {
 
         // 判断目录是否存在
         SftpHandler::log_info("check dir ...", log_func.clone());
-        SftpHandler::check_dir(&sftp, &server_temp_path_str)?;
+        SftpHandler::check_dir(&sftp, &server_temp_path_str, log_func.clone())?;
 
         let zip_file_name = Path::new(zip_file_path).file_name().unwrap_or(OsStr::new("")).to_string_lossy().to_string();
 
         // 1. 上传
         SftpHandler::log_info(&format!("begin to uploading file {} and set file permission ...", zip_file_path), log_func.clone());
 
-        SftpHandler::upload(sftp, zip_file_path, &server_temp_path_str, &zip_file_name)?;
+        SftpHandler::upload(sftp, zip_file_path, &server_temp_path_str, &zip_file_name, log_func.clone())?;
 
         SftpHandler::log_info(&format!("uploading file {} and set file permission success !", zip_file_path), log_func.clone());
 

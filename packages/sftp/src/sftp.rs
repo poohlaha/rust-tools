@@ -21,7 +21,10 @@ const DEFAULT_TIMEOUT: u64 = 10;
 impl SftpHandler {
 
     /// 连接服务器
-    pub fn connect(server: &Server) -> Result<Session, String> {
+    pub fn connect<F>(server: &Server, log_func: Arc<Mutex<F>>) -> Result<Session, String>
+        where
+            F: FnMut(&str)
+    {
         let address = format!("{}:{}", &server.host, server.port);
         let socket = SocketAddr::from_str(&address).map_err(|err| {
             let msg = format!("convert {} to socket address error: {:#?}", &address, err);
@@ -29,12 +32,17 @@ impl SftpHandler {
             Error::convert_string(&msg)
         })?;
 
-        let tcp = TcpStream::connect_timeout(&socket, Self::get_time_out(server.timeout)).map_err(|err| {
+        let timeout = Self::get_time_out(server.timeout);
+        Self::log_info(&format!("connect timeout: {:#?}", timeout), log_func.clone());
+
+        Self::log_info("create tcp ..", log_func.clone());
+        let tcp = TcpStream::connect_timeout(&socket, timeout).map_err(|err| {
             let msg = format!("connect to {} error: {:#?}", &address, err);
             error!("{}", &msg);
             Error::convert_string(&msg)
         })?;
 
+        Self::log_info("create session ..", log_func.clone());
         let mut session = Session::new().map_err(|err| {
             let msg = format!("get session error: {:#?}", err);
             error!("{}", &msg);
@@ -42,12 +50,15 @@ impl SftpHandler {
         })?;
 
         session.set_tcp_stream(tcp);
+
+        Self::log_info("session handshake ..", log_func.clone());
         session.handshake().map_err(|err| {
             let msg = format!("connect to {} error: {:#?}", &address, err);
             error!("{}", &msg);
             Error::convert_string(&msg)
         })?;
 
+        Self::log_info("session auth ..", log_func.clone());
         session.userauth_password(&server.username, &server.password).map_err(|err| {
             let msg = format!("auth {} `user` and `password` error: {:#?}", &address, err);
             error!("{}", &msg);
@@ -60,12 +71,15 @@ impl SftpHandler {
             return Err(Error::convert_string(&msg));
         }
 
-        info!("connect {} success !", &address);
+        Self::log_info(&format!("connect {} success !", &address), log_func.clone());
         Ok(session)
     }
 
     /// 文件上传
-    pub(crate) fn upload(sftp: &Sftp, file_path: &str, dest_dir: &str, file_name: &str) -> Result<(), String> {
+    pub(crate) fn upload<F>(sftp: &Sftp, file_path: &str, dest_dir: &str, file_name: &str, log_func: Arc<Mutex<F>>) -> Result<(), String>
+        where
+            F: FnMut(&str)
+    {
         if !Path::new(file_path).exists() {
             let msg = format!("upload dir failed, file path: {} not exists !", &file_path);
             error!("{}", &msg);
@@ -73,7 +87,7 @@ impl SftpHandler {
         }
 
         // 判断目录是否存在, 不存在则创建
-        Self::check_dir(sftp, dest_dir)?;
+        Self::check_dir(sftp, dest_dir, log_func.clone())?;
         let remote_file_path = Path::new(dest_dir).join(file_name);
         let remote_file_path_str = remote_file_path.as_path().to_string_lossy().to_string();
 
@@ -92,7 +106,7 @@ impl SftpHandler {
             Error::convert_string(&msg)
         })?;
 
-        info!("uploading file {} ...", file_path);
+        Self::log_info(&format!("uploading file {} ...", file_path), log_func.clone());
 
         // progress bar
         let pb = ProgressBar::new_spinner();
@@ -110,10 +124,10 @@ impl SftpHandler {
         pb.finish_with_message(format!("Upload File {} Success !", file_path));
 
         // upload success
-        info!("upload file `{}` success, file path: {}", file_name, &remote_file_path_str);
+        Self::log_info(&format!("upload file `{}` success, file path: {}", file_name, &remote_file_path_str), log_func.clone());
 
         // 设置文件权限
-        info!("begin to set file `{}` permission ...", file_path);
+        Self::log_info(&format!("begin to set file `{}` permission ...", file_path), log_func.clone());
         sftp.setstat(&remote_file_path, FileStat {
             size: None,
             uid: None,
@@ -127,12 +141,15 @@ impl SftpHandler {
             Error::convert_string(&msg)
         })?;
 
-        info!("set file `{}` permission success !", file_name);
+        Self::log_info(&format!("set file `{}` permission success !", file_name), log_func.clone());
         Ok(())
     }
 
     /// 判断目录是否存在, 不存在则创建
-    pub(crate) fn check_dir(sftp: &Sftp, file_path: &str) -> Result<(), String> {
+    pub(crate) fn check_dir<F>(sftp: &Sftp, file_path: &str, log_func: Arc<Mutex<F>>) -> Result<(), String>
+        where
+            F: FnMut(&str)
+    {
         let path = Path::new(file_path);
 
         // 目录存在
@@ -141,7 +158,7 @@ impl SftpHandler {
         }
 
         // 不存在则创建
-        info!("remote file dir: `{}` is not exists, it will be created!", file_path);
+        Self::log_info(&format!("remote file dir: `{}` is not exists, it will be created!", file_path), log_func.clone());
         sftp.mkdir(&path, 0o777).map_err(|err| {
             let msg = format!("mkdir file path `{}` error: {:#?}", file_path, err);
             error!("{}", &msg);
