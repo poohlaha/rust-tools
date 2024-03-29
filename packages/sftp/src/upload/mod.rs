@@ -239,7 +239,7 @@ impl SftpUpload {
             Err(err) => {
                 let msg = format!("uncompress zip: {:?} error: {:#?} !", server_file_path, err);
                 error!("{}", msg);
-                Self::end(sftp, session, &server_file_path, &unzip_dir_str, zip_file_path, log_func.clone());
+                Self::end(sftp, session, &server_file_path, &unzip_dir_str, zip_file_path, true, log_func.clone());
                 return Err(Error::convert_string(&msg));
             }
         };
@@ -253,7 +253,7 @@ impl SftpUpload {
             Err(err) => {
                 let msg = format!("publish {} error: {}", file_name, err);
                 error!("{}", &msg);
-                Self::end(sftp, session, &server_file_path, &unzip_dir_str, zip_file_path, log_func.clone());
+                Self::end(sftp, session, &server_file_path, &unzip_dir_str, zip_file_path, true, log_func.clone());
                 return Err(Error::convert_string(&msg));
             }
         };
@@ -265,19 +265,24 @@ impl SftpUpload {
         if result.exec_commands.is_empty() {
             // 输出日志
             SftpHandler::log_info("no commands need to exec !", log_func.clone());
-            Self::end(sftp, session, &server_file_path, &unzip_dir_str, zip_file_path, log_func.clone());
+            Self::end(sftp, session, &server_file_path, &unzip_dir_str, zip_file_path, true, log_func.clone());
             return Ok(result);
         }
 
         match Self::exec_command(session, result.exec_commands.clone(), log_func.clone()) {
             Ok(_) => {
-                Self::end(sftp, session, &server_file_path, &unzip_dir_str, zip_file_path, log_func.clone());
+                let mut delete_dir = true;
+                let need_delete_dir = upload.need_delete_dir;
+                if let Some(need_delete_dir) = need_delete_dir {
+                    delete_dir = need_delete_dir
+                }
+                Self::end(sftp, session, &server_file_path, &unzip_dir_str, zip_file_path, delete_dir, log_func.clone());
             }
             Err(err) => {
                 // 输出日志
                 let msg = format!("publish {} error: {}", file_name, err);
                 SftpHandler::log_error("no commands need to exec !", log_func.clone());
-                Self::end(sftp, session, &server_file_path, &unzip_dir_str, zip_file_path, log_func.clone());
+                Self::end(sftp, session, &server_file_path, &unzip_dir_str, zip_file_path, true, log_func.clone());
                 return Err(Error::convert_string(&msg));
             }
         }
@@ -286,7 +291,7 @@ impl SftpUpload {
     }
 
     /// 结束
-    fn end<F>(sftp: &Sftp, session: &Session, server_file_path: &PathBuf, unzip_dir_str: &str, zip_file_path: &str, log_func: Arc<Mutex<F>>)
+    fn end<F>(sftp: &Sftp, session: &Session, server_file_path: &PathBuf, unzip_dir_str: &str, zip_file_path: &str, need_delete_dir: bool, log_func: Arc<Mutex<F>>)
     where
         F: FnMut(&str),
     {
@@ -301,8 +306,12 @@ impl SftpUpload {
         let _ = Self::exec_command(session, vec![format!("rm -rf {}", unzip_dir_str)], log_func.clone());
 
         // 删除本地压缩包
-        let _ = FileHandler::delete_file(zip_file_path);
-        SftpHandler::log_info(&format!("upload end, delete local and server zip file: {:?} 、 unzip dir: {} success !", server_file_path, unzip_dir_str), log_func.clone());
+        if need_delete_dir {
+            let _ = FileHandler::delete_file(zip_file_path);
+            SftpHandler::log_info(&format!("upload end, delete local and server zip file: {:?} 、 unzip dir: {} success !", server_file_path, unzip_dir_str), log_func.clone());
+        } else {
+            SftpHandler::log_info("upload end !", log_func.clone());
+        }
     }
 
     /// 重命令上传目录，添加时间戳
