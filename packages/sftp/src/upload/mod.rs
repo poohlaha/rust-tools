@@ -261,21 +261,23 @@ impl SftpUpload {
         // 输出日志
         SftpHandler::log_info(&format!("exec commands:\n {:#?}", result.exec_commands), log_func.clone());
 
+        let mut delete_dir = true;
+        let need_delete_dir = upload.need_delete_dir;
+        if let Some(need_delete_dir) = need_delete_dir {
+            delete_dir = need_delete_dir
+        }
+
         // 执行发布命令
         if result.exec_commands.is_empty() {
             // 输出日志
             SftpHandler::log_info("no commands need to exec !", log_func.clone());
-            Self::end(sftp, session, &server_file_path, &unzip_dir_str, zip_file_path, true, log_func.clone());
+            Self::end(sftp, session, &server_file_path, &unzip_dir_str, zip_file_path, delete_dir, log_func.clone());
             return Ok(result);
         }
 
         match Self::exec_command(session, result.exec_commands.clone(), log_func.clone()) {
             Ok(_) => {
-                let mut delete_dir = true;
-                let need_delete_dir = upload.need_delete_dir;
-                if let Some(need_delete_dir) = need_delete_dir {
-                    delete_dir = need_delete_dir
-                }
+
                 Self::end(sftp, session, &server_file_path, &unzip_dir_str, zip_file_path, delete_dir, log_func.clone());
             }
             Err(err) => {
