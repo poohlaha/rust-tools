@@ -1,6 +1,6 @@
 [package]
 name = "images-compressor"
-version = "1.0.3"
+version = "1.0.4"
 edition = "2021"
 authors = ["poohlaha"]
 license = "MIT/Apache-2.0"
@@ -16,7 +16,7 @@ image = "0.24"
 gif = "0.12"
 imagequant = "4.2"
 lodepng = "3.9"
-mozjpeg = "0.9.2"
+mozjpeg = "0.10.9"
 crossbeam-queue = "0.3"
 fs_extra = "1.3"
 
