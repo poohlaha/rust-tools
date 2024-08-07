@@ -7,7 +7,6 @@ pub struct Factor {
 }
 
 impl Factor {
-
     pub fn quality(&self) -> f32 {
         return self.quality;
     }
@@ -17,11 +16,11 @@ impl Factor {
     }
 
     pub fn get_default_quality(&self) -> f32 {
-        return 80.0
+        return 80.0;
     }
 
     pub fn get_default_size_ratio(&self) -> f32 {
-        return 0.8
+        return 0.8;
     }
 }
 

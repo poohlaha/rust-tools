@@ -24,7 +24,7 @@ pub struct Upload {
     pub server_dir: String,               // 上传服务器目录
     pub server_file_name: Option<String>, // 服务端文件名称, 如果是文件默认同文件名, 如果是目录，默认同目录名
     pub need_increment: bool,             // 是否增量发布, 如果是增量则需要比较文件是否一致
-    pub need_delete_dir: Option<bool>     // 上传结束后是否删除 dir 目录, 默认为 true
+    pub need_delete_dir: Option<bool>,    // 上传结束后是否删除 dir 目录, 默认为 true
 }
 
 impl Upload {

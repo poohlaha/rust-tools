@@ -11,8 +11,6 @@ fn test_minimize() {
         optimization_css: false,
     };
 
-    let success = Minimize::exec(&args, |str| {
-
-    });
+    let success = Minimize::exec(&args, |str| {});
     assert_eq!(success, true);
 }

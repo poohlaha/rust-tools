@@ -1,19 +1,18 @@
 //! Utils 类
 
-use std::{fs};
+use crate::error::Error;
+use crate::file::FileHandler;
+use log::info;
+use std::fs;
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
-use log::info;
 use zip::write::{FileOptions, SimpleFileOptions};
 use zip::{CompressionMethod, ZipWriter};
-use crate::error::Error;
-use crate::file::FileHandler;
 
 pub struct Utils;
 
 impl Utils {
-
     /// 获取年月日
     pub fn get_date(format: Option<String>) -> String {
         let mut date_format = String::from("%Y-%m-%d %H:%M:%S");
@@ -22,6 +21,20 @@ impl Utils {
         }
 
         chrono::Local::now().format(&date_format).to_string()
+    }
+
+    /// 获取年月日
+    pub fn get_date_time(format: Option<String>) -> Result<chrono::NaiveDateTime, String> {
+        let mut date_format = String::from("%Y-%m-%d %H:%M:%S");
+        if let Some(format) = format {
+            date_format = format
+        }
+
+        let date = chrono::Local::now().format(&date_format).to_string();
+        return match chrono::NaiveDateTime::parse_from_str(&date, &date_format) {
+            Ok(date) => Ok(date),
+            Err(err) => Err(Error::convert_string(&format!("get date time error: {:#?}", err))),
+        };
     }
 
     /// 生成 zip 压缩包
@@ -67,8 +80,6 @@ impl Utils {
 
         Ok(())
     }
-
-
 
     /// 版权所有
     pub fn copyright() {

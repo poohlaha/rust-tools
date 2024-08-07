@@ -1,17 +1,17 @@
+use crate::HttpFormData;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::error::Error;
-use crate::HttpFormData;
 
 #[derive(Debug)]
 pub struct Options {
-    pub url: String,            // url
-    pub method: Option<String>, // method: post、get
-    pub data: Option<Value>,    // data
-    pub form: Option<HttpFormData>,     // form
-    pub headers: Option<Value>, // headers
-    pub timeout: Option<u64>,   // timeout
+    pub url: String,                // url
+    pub method: Option<String>,     // method: post、get
+    pub data: Option<Value>,        // data
+    pub form: Option<HttpFormData>, // form
+    pub headers: Option<Value>,     // headers
+    pub timeout: Option<u64>,       // timeout
 }
 
 #[derive(Serialize, Deserialize, Debug)]

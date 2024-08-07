@@ -1,6 +1,7 @@
 //! 图片操作
 
-use crate::compressor::{CompressorFile, log};
+use crate::compressor::{log, CompressorFile};
+use colored::Colorize;
 use image::imageops::FilterType;
 use imagequant::Attributes;
 use lodepng::decode32_file;
@@ -10,7 +11,6 @@ use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
-use colored::Colorize;
 
 pub struct Img;
 
@@ -23,8 +23,8 @@ pub struct ImgResized {
 
 impl Img {
     pub fn resize<F>(file_path: &PathBuf, resize_ratio: f32, log_func: Arc<Mutex<F>>) -> Option<ImgResized>
-        where
-            F: FnMut(&str)
+    where
+        F: FnMut(&str),
     {
         let img = match image::open(file_path) {
             Ok(img) => Some(img),
@@ -58,8 +58,8 @@ impl Img {
 
     /// 压缩 jpg
     pub fn compress_jpg<F>(img_resized: ImgResized, quality: f32, dest_file_path: &PathBuf, file_relative_path: &str, log_func: Arc<Mutex<F>>) -> bool
-        where
-            F: FnMut(&str)
+    where
+        F: FnMut(&str),
     {
         let target_width = img_resized.width;
         let target_height = img_resized.height;
@@ -127,8 +127,8 @@ impl Img {
 
     /// 压缩 png
     pub fn compress_png<F>(file_path: &PathBuf, quality: f32, dest_file_path: &PathBuf, dest_tmp_file_path: &PathBuf, file: &CompressorFile, is_same_dir: bool, log_func: Arc<Mutex<F>>) -> bool
-        where
-            F: FnMut(&str)
+    where
+        F: FnMut(&str),
     {
         let bitmap = match decode32_file(file_path) {
             Ok(bitmap) => Some(bitmap),
@@ -240,8 +240,8 @@ impl Img {
 
     /// 压缩 gif
     pub fn compress_gif<F>(file_path: &PathBuf, dest_file_path: &PathBuf, dest_tmp_file_path: &PathBuf, file: &CompressorFile, is_same_dir: bool, log_func: Arc<Mutex<F>>) -> bool
-        where
-            F: FnMut(&str)
+    where
+        F: FnMut(&str),
     {
         let img = match File::open(file_path) {
             Ok(img) => Some(img),
@@ -331,8 +331,8 @@ impl Img {
 
     /// 校验图片, 判断压缩后图片是不是大于原图片, 如果大于, 则取消压缩
     fn validate_image<F>(dest_tmp_file_path: &PathBuf, dest_file_path: &PathBuf, file: &CompressorFile, is_same_dir: bool, name: &str, log_func: Arc<Mutex<F>>) -> bool
-        where
-            F: FnMut(&str)
+    where
+        F: FnMut(&str),
     {
         // 判断压缩后图片是不是大于原图片, 如果大于, 则取消压缩
         let tmp_file_size = fs::metadata(dest_tmp_file_path).unwrap().len();

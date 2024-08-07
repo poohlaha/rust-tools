@@ -4,5 +4,5 @@ pub mod utils;
 
 pub mod command;
 
-pub mod file;
 pub mod error;
+pub mod file;

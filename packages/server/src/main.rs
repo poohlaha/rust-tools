@@ -1,11 +1,11 @@
 //! 前端上传日志到后台，然后存储到文件中
 
+use serde_json::{from_str, Value};
+use std::fs;
 use std::io::{Result, Write};
 use std::net::TcpListener;
 use std::thread;
 use tungstenite::accept;
-use std::fs;
-use serde_json::{Value, from_str};
 
 // 设置 HOST
 const HOST: &str = "127.0.0.1:7878";
@@ -18,8 +18,8 @@ fn run() -> TcpListener {
         Ok(server) => {
             println!("{} WebSocket server listening on ws://{}", LOGGER_PREFIX, HOST);
             server
-        },
-        Err(err) => panic!("{} WebSocket server start error: {:?}", LOGGER_PREFIX, err)
+        }
+        Err(err) => panic!("{} WebSocket server start error: {:?}", LOGGER_PREFIX, err),
     };
 
     return server;
@@ -38,11 +38,7 @@ fn write_to_log_file(data: Value) -> Result<()> {
     error_data += &error;
     println!("error_data {}", error_data);
 
-
-    let mut file = fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(LOG_FILE_PATH)?;
+    let mut file = fs::OpenOptions::new().create(true).append(true).open(LOG_FILE_PATH)?;
     writeln!(file, "{}", error_data)?;
     Ok(())
 }
@@ -68,7 +64,7 @@ fn main() {
                         println!("{} write to log success !", LOGGER_PREFIX);
                         // 发送响应给客户端
                         websocket.write_message("success".into()).expect("Failed to send response !");
-                    },
+                    }
                     Err(_) => {
                         websocket.write_message("failed".into()).expect("Failed to send response !");
                     }

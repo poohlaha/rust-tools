@@ -10,7 +10,7 @@ pub struct Options {
     pub username: Option<String>,
     pub pwd: Option<String>,
     pub db: Option<i64>,
-    pub timeout: Option<u64>
+    pub timeout: Option<u64>,
 }
 
 pub struct Redis {
@@ -19,11 +19,10 @@ pub struct Redis {
     username: String,
     pwd: String,
     db: i64,
-    timeout: Duration
+    timeout: Duration,
 }
 
 impl Redis {
-
     /// 初始化函数
     pub(crate) fn new(opts: Options) -> Redis {
         // port
@@ -31,7 +30,6 @@ impl Redis {
         if let Some(port) = opts.port {
             redis_port = port;
         }
-
 
         // username
         let mut redis_username = String::new();
@@ -63,7 +61,7 @@ impl Redis {
             username: redis_username,
             pwd: redis_pwd,
             db: redis_db,
-            timeout: redis_timeout
+            timeout: redis_timeout,
         };
     }
 
@@ -130,7 +128,7 @@ impl Redis {
         match connect.as_mut() {
             None => panic!("client is null ."),
             Some(connection) => {
-               return match connection.get(key)  {
+                return match connection.get(key) {
                     Ok(value) => Some(value),
                     Err(error) => {
                         println!("get key: {} error: {:?}", key, error);
@@ -157,16 +155,14 @@ impl Redis {
             None => {
                 println!("client is null .");
                 return false;
-            },
-            Some(connection) => {
-                match connection.set::<&str, &str, String>(key, value) {
-                    Ok(_) => true,
-                    Err(err) => {
-                        println!("set key: {} error: {:?}", key, err);
-                        return false
-                    }
-                }
             }
-        }
+            Some(connection) => match connection.set::<&str, &str, String>(key, value) {
+                Ok(_) => true,
+                Err(err) => {
+                    println!("set key: {} error: {:?}", key, err);
+                    return false;
+                }
+            },
+        };
     }
 }

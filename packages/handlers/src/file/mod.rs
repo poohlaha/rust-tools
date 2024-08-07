@@ -1,30 +1,29 @@
 //! 文件操作
 
+use crate::error::Error;
+use crypto_hash::{hex_digest, Algorithm};
+use log::{error, info};
 use std::ffi::OsStr;
 use std::fs;
 use std::fs::File;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
-use crypto_hash::{Algorithm, hex_digest};
-use log::{error, info};
-use crate::error::Error;
 
 pub struct FileHandler;
 
 impl FileHandler {
-
     /// 创建目录
     pub fn create_dirs(dir: &str) -> Result<PathBuf, String> {
         if dir.is_empty() {
             error!("create dirs failed, `name` is empty !");
-            return Err(Error::convert_string("create dirs failed, `name` is empty !"))
+            return Err(Error::convert_string("create dirs failed, `name` is empty !"));
         }
 
         let path = PathBuf::from(dir);
 
         // 存在则直接返回
         if path.exists() {
-            return Ok(path)
+            return Ok(path);
         }
 
         // 不存在则创建
@@ -42,8 +41,7 @@ impl FileHandler {
     pub fn read_file_string(file_path: &str) -> Result<String, String> {
         let mut file = Self::open_file(file_path)?;
         let mut contents = String::new();
-        file.read_to_string(&mut contents)
-            .map_err(|err| Error::Error(err.to_string()).to_string())?;
+        file.read_to_string(&mut contents).map_err(|err| Error::Error(err.to_string()).to_string())?;
         Ok(contents)
     }
 
@@ -51,8 +49,7 @@ impl FileHandler {
     pub fn read_file_buffer(file_path: &str) -> Result<Vec<u8>, String> {
         let mut file = Self::open_file(file_path)?;
         let mut buffer = Vec::new();
-        file.read_to_end(&mut buffer)
-            .map_err(|err| Error::Error(err.to_string()).to_string())?;
+        file.read_to_end(&mut buffer).map_err(|err| Error::Error(err.to_string()).to_string())?;
         Ok(buffer)
     }
 
@@ -72,19 +69,16 @@ impl FileHandler {
     pub fn write_to_file_when_clear(file_path: &str, content: &str) -> Result<(), String> {
         // 打开文件以进行覆盖写入
         let mut file = File::create(&file_path).map_err(|err| Error::Error(err.to_string()).to_string())?;
-        file.write_all(content.as_bytes())
-            .map_err(|err| Error::Error(err.to_string()).to_string())?;
+        file.write_all(content.as_bytes()).map_err(|err| Error::Error(err.to_string()).to_string())?;
         file.flush().unwrap(); // 刷新文件缓冲
         file.sync_all().unwrap(); // 写入磁盘
         drop(file); // 自动关闭文件
         Ok(())
     }
-
 }
 
 /// 文件操作
 impl FileHandler {
-
     /// 删除文件目录
     pub fn delete_dirs(paths: Vec<String>) -> Result<(), String> {
         fs_extra::remove_items(&paths).map_err(|err| Error::Error(err.to_string()).to_string())
@@ -149,7 +143,7 @@ impl FileHandler {
         // 文件不存在
         if !path.exists() {
             info!("get file hash failed, file path: `{}` is not exists!", file_path);
-            return Ok(String::new())
+            return Ok(String::new());
         }
 
         let mut file = File::open(path).map_err(|err| {

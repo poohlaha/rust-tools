@@ -2,6 +2,7 @@
 
 use crate::factor::Factor;
 use crate::img::Img;
+use colored::Colorize;
 use crossbeam_queue::SegQueue;
 use fs_extra::dir;
 use std::ffi::OsStr;
@@ -9,7 +10,6 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use std::{fs, thread};
-use colored::Colorize;
 
 pub struct Compressor {
     pub factor: Factor,
@@ -100,7 +100,7 @@ impl Compressor {
     /// compress
     pub fn compress<F>(self, log_func: F) -> Result<bool, String>
     where
-        F: FnMut(&str) + Send + 'static
+        F: FnMut(&str) + Send + 'static,
     {
         let log_func = Arc::new(Mutex::new(log_func));
 
@@ -135,7 +135,7 @@ impl Compressor {
                     // let err_msg = format!("operate dest dir: {}, error", dest_dir.as_path().to_string_lossy().to_string());
                     let msg = format!("operate dest dir: {} error: {:#?}", dest_dir.as_path().to_string_lossy().to_string().magenta().bold(), err);
                     log(&msg, log_func.clone());
-                    return Err(msg.to_string())
+                    return Err(msg.to_string());
                 }
             }
         }
@@ -180,7 +180,7 @@ impl Compressor {
 
 fn process<F>(queue: Arc<SegQueue<CompressorFile>>, compressor: &Compressor, log_func: Arc<Mutex<F>>)
 where
-    F: FnMut(&str)
+    F: FnMut(&str),
 {
     while !queue.is_empty() {
         match queue.pop() {
@@ -203,8 +203,8 @@ where
 
 /// 转换
 fn compress<F>(origin_file_path: &PathBuf, dest_file_path: &PathBuf, dest_tmp_file_path: &PathBuf, file: &CompressorFile, compressor: &Compressor, log_func: Arc<Mutex<F>>) -> bool
-    where
-        F: FnMut(&str)
+where
+    F: FnMut(&str),
 {
     let mut factor = compressor.factor.clone();
     let file_relative_path = &file.relative_path;
@@ -275,8 +275,8 @@ fn compress<F>(origin_file_path: &PathBuf, dest_file_path: &PathBuf, dest_tmp_fi
 
 /// 记录日志
 pub fn log<F>(msg: &str, log_func: Arc<Mutex<F>>)
-    where
-        F: FnMut(&str),
+where
+    F: FnMut(&str),
 {
     println!("{}", msg);
     let mut log_func = log_func.lock().unwrap();

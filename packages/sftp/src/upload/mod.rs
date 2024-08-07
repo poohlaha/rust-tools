@@ -277,7 +277,6 @@ impl SftpUpload {
 
         match Self::exec_command(session, result.exec_commands.clone(), log_func.clone()) {
             Ok(_) => {
-
                 Self::end(sftp, session, &server_file_path, &unzip_dir_str, zip_file_path, delete_dir, log_func.clone());
             }
             Err(err) => {

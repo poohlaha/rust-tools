@@ -1,10 +1,10 @@
 //! 通过 `Command::new` 命令运行
 
+use log::info;
 use std::io::{BufRead, BufReader};
 use std::process::{Child, Command, Output, Stdio};
 use std::sync::{Arc, Mutex};
 use std::{io, thread};
-use log::info;
 
 pub struct CommandHandler;
 
@@ -54,7 +54,6 @@ impl CommandHandler {
         return (flag, lines);
     }
 
-
     /// 运行命令, 输出实时日志
     pub fn get_command_lines(command: &str) -> Vec<String> {
         if command.is_empty() {
@@ -103,14 +102,14 @@ impl CommandHandler {
         // windows 通过 cmd /C 执行多条命令: cd c:\\usr\\local\\nginx\\sbin/ && nginx
         #[cfg(target_os = "windows")]
         {
-            info!("exec command:\n {}",  _command);
+            info!("exec command:\n {}", _command);
             output = Command::new("cmd").args(&["/C", &_command]).output();
         }
 
         // linux|macos 通过 shell -c 执行多条命令: cd /usr/local/nginx/sbin/\n./nginx
         #[cfg(target_os = "macos")]
         {
-            info!("exec command:\n {}",  _command);
+            info!("exec command:\n {}", _command);
             output = Command::new("sh").arg("-c").arg(command).output()
         }
 
@@ -123,7 +122,7 @@ impl CommandHandler {
         return match output {
             Ok(output) => Some(output),
             Err(err) => {
-                info!("exec command error: {:?}",  err);
+                info!("exec command error: {:?}", err);
                 None
             }
         };
