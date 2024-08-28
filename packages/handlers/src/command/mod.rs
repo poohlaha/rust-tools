@@ -1,6 +1,6 @@
 //! 通过 `Command::new` 命令运行
 
-mod func;
+pub mod func;
 
 use log::info;
 use std::io::{BufRead, BufReader};
