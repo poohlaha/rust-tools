@@ -1,0 +1,18 @@
+[package]
+name = "docker"
+version = "0.1.1"
+edition = "2021"
+authors = ["poohlaha"]
+license = "MIT/Apache-2.0"
+description = "Send http or https request."
+homepage = "https://github.com/poohlaha/rust-tools/tree/main/packages/docker"
+repository = "https://github.com/poohlaha/rust-tools/tree/main/packages/docker"
+readme = "README.md"
+keywords = ["docker"]
+
+[dependencies]
+thiserror = "1.0"
+log = "0.4"
+ssh2 = "0.9"
+handlers = {git = "https://github.com/poohlaha/rust-tools", branch = "main", package = "handlers", version = "0.1.6"}
+sftp = {git = "https://github.com/poohlaha/rust-tools", branch = "main", package = "sftp", version = "0.1.9"}
