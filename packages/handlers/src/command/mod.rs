@@ -242,7 +242,7 @@ impl CommandHandler {
     }
 
     /// 判断本机有没有安装某个命令
-    pub(crate) fn check_installed_command(name: &str) -> bool {
+    pub fn check_installed_command(name: &str) -> bool {
         let mut command = "which";
         #[cfg(target_os = "windows")]
         {
