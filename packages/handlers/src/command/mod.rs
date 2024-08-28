@@ -1,5 +1,7 @@
 //! 通过 `Command::new` 命令运行
 
+mod func;
+
 use log::info;
 use std::io::{BufRead, BufReader};
 use std::process::{Child, Command, Output, Stdio};
@@ -9,6 +11,48 @@ use std::{io, thread};
 pub struct CommandHandler;
 
 impl CommandHandler {
+    /// 判断本机有没有安装某个命令
+    pub fn check_installed_command(name: &str) -> bool {
+        let mut command = "which";
+        #[cfg(target_os = "windows")]
+        {
+            command = "where"
+        }
+
+        match Command::new(command).arg(name).output() {
+            Ok(output) => output.status.success(),
+            Err(_) => false,
+        }
+    }
+
+    /// 获取版本
+    pub fn get_cmd_version(name: &str) -> String {
+        let output = Command::new(&name).arg("--version").output();
+        return match output {
+            Ok(output) => {
+                if output.status.success() {
+                    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+                    // 去除换行
+                    let stdout = stdout.replace("\n", "").trim().to_string();
+                    return stdout;
+                }
+
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                if !stderr.is_empty() {
+                    info!("get `{}` version error: {:#?}", name, stderr);
+                    return String::new();
+                }
+
+                info!("get `{}` version failed, error status: {:#?}", name, output.status);
+                String::new()
+            }
+            Err(err) => {
+                info!("get `{}` version error: {:#?}", name, err);
+                String::new()
+            }
+        };
+    }
+
     /// 执行命令, 获取输出结果
     pub fn exec_command_result(command: &str) -> String {
         let output = Self::get_exec_command_output(command);
@@ -239,19 +283,5 @@ impl CommandHandler {
         }
 
         return lines.clone();
-    }
-
-    /// 判断本机有没有安装某个命令
-    pub fn check_installed_command(name: &str) -> bool {
-        let mut command = "which";
-        #[cfg(target_os = "windows")]
-        {
-            command = "where"
-        }
-
-        match Command::new(command).arg(name).output() {
-            Ok(output) => output.status.success(),
-            Err(_) => false,
-        }
     }
 }
