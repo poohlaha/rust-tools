@@ -16,7 +16,7 @@ use std::sync::{Arc, Mutex};
 pub struct DockerHandler;
 
 impl DockerHandler {
-   pub async fn exec<F>(docker_config: &DockerConfig, server: &sftp::config::Server, func: F) -> Result<bool, String>
+    pub async fn exec<F>(docker_config: &DockerConfig, server: &sftp::config::Server, func: F) -> Result<bool, String>
     where
         F: Fn(&str) + Send + Sync + Copy + 'static,
     {
