@@ -3,20 +3,20 @@ pub mod error;
 
 #[derive(Default, Debug, Clone)]
 pub struct DockerConfig {
-    dir: String,                  // 执行命令的目录
-    dockerfile: String,           // Dockerfile 文件
-    address: String,              // 远程仓库 address
-    image: String,                // docker image
-    version: String,              // docker image version
-    namespace: String,            // 远程仓库 namespace
-    user: String,                 // 远程仓库 用户名
-    password: String,             // 远程仓库 密码
-    need_push: String,            // 是否推送到远程仓库
-    nginx_path: String,           // docker 中 nginx 地址
-    nginx_content: String,        // docker 中 nginx 内容(如果需要拷贝 nginx)
-    platform: String,             // docker 打包平台
-    deploy_dir: String,           // 发布目录
-    kubernetes_namespace: String, // Kubernetes 命名空间名称
+    pub dir: String,                  // 执行命令的目录
+    pub dockerfile: String,           // Dockerfile 文件
+    pub address: String,              // 远程仓库 address
+    pub image: String,                // docker image
+    pub version: String,              // docker image version
+    pub namespace: String,            // 远程仓库 namespace
+    pub user: String,                 // 远程仓库 用户名
+    pub password: String,             // 远程仓库 密码
+    pub need_push: String,            // 是否推送到远程仓库
+    pub nginx_path: String,           // docker 中 nginx 地址
+    pub nginx_content: String,        // docker 中 nginx 内容(如果需要拷贝 nginx)
+    pub platform: String,             // docker 打包平台
+    pub deploy_dir: String,           // 发布目录
+    pub kubernetes_namespace: String, // Kubernetes 命名空间名称
 }
 
 impl DockerConfig {

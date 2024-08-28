@@ -1,6 +1,7 @@
 //! Docker, 可以使用第三方库 `bollard`
 
 use crate::error::Error;
+use crate::DockerConfig;
 use handlers::command::func::CommandFuncHandler;
 use handlers::command::CommandHandler;
 use handlers::file::FileHandler;
@@ -11,7 +12,6 @@ use ssh2::Session;
 use std::io::Read;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
-use crate::DockerConfig;
 
 pub struct DockerHandler;
 

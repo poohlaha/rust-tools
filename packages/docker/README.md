@@ -13,6 +13,7 @@ Next, add this to your crate:
 
 ```rust
 use docker::docker::DockerHandler;
+use docker::DockerConfig;
 
 fn main() {
     // ...
