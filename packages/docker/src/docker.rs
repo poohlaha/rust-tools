@@ -11,7 +11,7 @@ use sftp::sftp::SftpHandler;
 use ssh2::Session;
 use std::io::Read;
 use std::path::Path;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 
 pub struct DockerHandler;
 
@@ -99,11 +99,11 @@ impl DockerHandler {
         let msg = format!("docker commands:\n{:#?}", commands);
         func(&msg);
 
-        let func_cloned = Arc::new(Mutex::new(func));
+        let func_cloned = Arc::new(RwLock::new(func));
         for command in commands.iter() {
             let func_clone = func_cloned.clone();
             let success = CommandFuncHandler::exec_command(&command, &docker_config.dir, move |msg| {
-                let func = func_clone.lock().unwrap();
+                let func = func_clone.read().unwrap();
                 (*func)(&msg);
             });
 
@@ -124,7 +124,7 @@ impl DockerHandler {
                 &docker_config,
                 &image,
                 move |msg| {
-                    let func = func_cloned.lock().unwrap();
+                    let func = func_cloned.read().unwrap();
                     (*func)(msg);
                 },
                 server,
@@ -168,15 +168,13 @@ impl DockerHandler {
         F: Fn(&str) + Send + Sync + 'static,
     {
         let func_cloned = Arc::new(Mutex::new(func));
-        let func_clone = func_cloned.clone();
-        let func_clone_command = func_cloned.clone();
-        let func_clone_command1 = func_cloned.clone();
-        let func_clone_command2 = func_cloned.clone();
-        let func_clone_pod = func_cloned.clone();
 
-        let msg = "update `image` in `kubectl` ...";
-        let func = func_clone.lock().unwrap();
-        (*func)(&msg);
+        {
+            let msg = "update `image` in `kubectl` ...";
+            let func_clone = func_cloned.clone();
+            let func = func_clone.lock().unwrap();
+            (*func)(&msg);
+        }
 
         let log_func = |_: &str| {};
         let log_func = Arc::new(Mutex::new(log_func));
@@ -189,12 +187,16 @@ impl DockerHandler {
         let yaml_cmd = format!("kubectl get deploy {} -n {} -o yaml", docker_config.image, docker_config.kubernetes_namespace);
         let cmd = format!("{} bash -c '{}'", login_cmd, yaml_cmd);
 
-        let msg = format!("get yaml config command: {}", cmd);
-        let func = func_clone.lock().unwrap();
-        (*func)(&msg);
+        {
+            let msg = format!("get yaml config command: {}", cmd);
+            let func_clone = func_cloned.clone();
+            let func = func_clone.lock().unwrap();
+            (*func)(&msg);
+        }
 
+        let func_clone = func_cloned.clone();
         let yaml_content = Self::exec_remote_command(&session, &cmd, "get kubectl yaml config error", move |msg| {
-            let func = func_clone_command.lock().unwrap();
+            let func = func_clone.lock().unwrap();
             (*func)(&msg);
         })?;
 
@@ -203,9 +205,12 @@ impl DockerHandler {
         let modified_yaml = regex.replace_all(&yaml_content, format!("image: {}", image).as_str());
         */
 
-        let msg = format!("kubectl yaml content:\n{}", yaml_content);
-        let func = func_clone.lock().unwrap();
-        (*func)(&msg);
+        {
+            let msg = format!("kubectl yaml content:\n{}", yaml_content);
+            let func_clone = func_cloned.clone();
+            let func = func_clone.lock().unwrap();
+            (*func)(&msg);
+        }
 
         if yaml_content.is_empty() {
             return Err(Error::convert_string("can not get kubectl yaml config !"));
@@ -233,31 +238,45 @@ impl DockerHandler {
 
         let cmd = format!("{} kubectl patch deployment {} -n {} --type=merge --patch '{}'", login_cmd, docker_config.image, docker_config.kubernetes_namespace, image_cmd);
 
-        let msg = format!("kubectl update image command:\n{}", cmd);
-        let func = func_clone.lock().unwrap();
-        (*func)(&msg);
+        {
+            let msg = format!("kubectl update image command:\n{}", cmd);
+            let func_clone = func_cloned.clone();
+            let func = func_clone.lock().unwrap();
+            (*func)(&msg);
+        }
 
+        let func_clone = func_cloned.clone();
         let output = Self::exec_remote_command(&session, &cmd, "exec command `kubectl patch` error", move |msg| {
-            let func = func_clone_command1.lock().unwrap();
+            let func = func_clone.lock().unwrap();
             (*func)(&msg);
         })?;
 
-        let msg = format!("kubectl patch output info: {}", output);
-        let func = func_clone.lock().unwrap();
-        (*func)(&msg);
+        {
+            let msg = format!("kubectl patch output info: {}", output);
+            let func_clone = func_cloned.clone();
+            let func = func_clone.lock().unwrap();
+            (*func)(&msg);
+        }
 
-        let msg = "update `image` in `kubectl` success ...";
-        let func = func_clone.lock().unwrap();
-        (*func)(&msg);
+        {
+            let msg = "update `image` in `kubectl` success ...";
+            let func_clone = func_cloned.clone();
+            let func = func_clone.lock().unwrap();
+            (*func)(&msg);
+        }
 
         // 如果没有 change, 需要删除原来的 pod
         if output.contains("no change") {
-            let msg = "no change will delete pod ...";
-            let func = func_clone.lock().unwrap();
-            (*func)(&msg);
+            {
+                let msg = "no change will delete pod ...";
+                let func_clone = func_cloned.clone();
+                let func = func_clone.lock().unwrap();
+                (*func)(&msg);
+            }
 
+            let func_clone = func_cloned.clone();
             let success = Self::delete_pod_name(&session, docker_config, &login_cmd, move |msg| {
-                let func = func_clone_pod.lock().unwrap();
+                let func = func_clone.lock().unwrap();
                 (*func)(&msg);
             })?;
 
@@ -265,25 +284,36 @@ impl DockerHandler {
                 return Err(Error::convert_string("delete pod error!"));
             }
 
-            let msg = "delete pod success ...";
-            let func = func_clone.lock().unwrap();
-            (*func)(&msg);
+            {
+                let msg = "delete pod success ...";
+                let func_clone = func_cloned.clone();
+                let func = func_clone.lock().unwrap();
+                (*func)(&msg);
+            }
         }
 
         // 重启 pod: kubectl rollout restart deployment/xxx(image) -n xxx
         let cmd = format!("{} kubectl rollout restart deployment/{} -n {}", login_cmd, docker_config.image, docker_config.kubernetes_namespace);
-        let msg = format!("pod restart command: {}", cmd);
-        let func = func_clone.lock().unwrap();
-        (*func)(&msg);
 
+        {
+            let msg = format!("pod restart command: {}", cmd);
+            let func_clone = func_cloned.clone();
+            let func = func_clone.lock().unwrap();
+            (*func)(&msg);
+        }
+
+        let func_clone = func_cloned.clone();
         let output = Self::exec_remote_command(&session, &cmd, "exec command `kubectl patch` error", move |msg| {
-            let func = func_clone_command2.lock().unwrap();
+            let func = func_clone.lock().unwrap();
             (*func)(&msg);
         })?;
 
-        let msg = format!("pod restart command output info: {}", output);
-        let func = func_clone.lock().unwrap();
-        (*func)(&msg);
+        {
+            let msg = format!("pod restart command output info: {}", output);
+            let func_clone = func_cloned.clone();
+            let func = func_clone.lock().unwrap();
+            (*func)(&msg);
+        }
 
         if output.is_empty() {
             return Ok(false);
@@ -297,34 +327,42 @@ impl DockerHandler {
         F: Fn(&str) + Send + Sync + 'static,
     {
         let func_cloned = Arc::new(Mutex::new(func));
-        let func_clone = func_cloned.clone();
-        let func_clone_normal = func_cloned.clone();
 
         // 1. 查找 pod 名字 kubectl get pod -n xxx | grep xxx
         let cmd = format!("{} kubectl get pod -n {} | grep {}", login_cmd, docker_config.kubernetes_namespace, docker_config.image);
+        let func_clone = func_cloned.clone();
         let output = Self::exec_remote_command(session, &cmd, "kubectl get pod name error", move |msg| {
             let func = func_clone.lock().unwrap();
             (*func)(msg);
         })?;
 
         if output.is_empty() {
-            let msg = "no pod name output";
-            let func = func_clone_normal.lock().unwrap();
-            (*func)(msg);
+            {
+                let msg = "no pod name output";
+                let func_clone = func_cloned.clone();
+                let func = func_clone.lock().unwrap();
+                (*func)(msg);
+            }
             return Ok(false);
         }
 
         let mut pod_name = String::new();
         if let Some(line) = output.lines().find(|line| line.starts_with(&docker_config.image)) {
             let name = line.split_whitespace().next().unwrap_or("");
-            let msg = format!("pod name: {}", name);
-            let func = func_clone_normal.lock().unwrap();
-            (*func)(&msg);
+            {
+                let msg = format!("pod name: {}", name);
+                let func_clone = func_cloned.clone();
+                let func = func_clone.lock().unwrap();
+                (*func)(&msg);
+            }
             pod_name = name.to_string()
         } else {
-            let msg = "no pad name get !";
-            let func = func_clone_normal.lock().unwrap();
-            (*func)(&msg);
+            {
+                let msg = "no pad name get !";
+                let func_clone = func_cloned.clone();
+                let func = func_clone.lock().unwrap();
+                (*func)(&msg);
+            }
         }
 
         if pod_name.is_empty() {
@@ -332,16 +370,19 @@ impl DockerHandler {
         }
 
         // 2. delete pod: kubectl delete pod -n xxx ${podname}
-        let func_clone = func_cloned.clone();
         let cmd = format!("{} kubectl delete pod -n {} {}", login_cmd, docker_config.kubernetes_namespace, pod_name);
+        let func_clone = func_cloned.clone();
         let mut output = Self::exec_remote_command(session, &cmd, "kubectl delete pod error", move |msg| {
             let func = func_clone.lock().unwrap();
             (*func)(&msg);
         })?;
 
-        let msg = format!("kubectl delete pod output: {}", output);
-        let func = func_clone_normal.lock().unwrap();
-        (*func)(&msg);
+        {
+            let msg = format!("kubectl delete pod output: {}", output);
+            let func_clone = func_cloned.clone();
+            let func = func_clone.lock().unwrap();
+            (*func)(&msg);
+        }
 
         output = output.trim().to_string();
 
