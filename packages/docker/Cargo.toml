@@ -14,5 +14,5 @@ keywords = ["docker"]
 thiserror = "1.0"
 log = "0.4"
 ssh2 = "0.9"
-handlers = {git = "https://github.com/poohlaha/rust-tools", branch = "main", package = "handlers", version = "0.1.6"}
-sftp = {git = "https://github.com/poohlaha/rust-tools", branch = "main", package = "sftp", version = "0.1.9"}
+handlers = {git = "https://github.com/poohlaha/rust-tools", branch = "main", package = "handlers"}
+sftp = {git = "https://github.com/poohlaha/rust-tools", branch = "main", package = "sftp"}

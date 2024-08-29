@@ -48,7 +48,7 @@ impl CommandFuncHandler {
         {
             let msg = &format!("exec command: {}", _command);
             func(&msg);
-            output = Command::new("sh").arg("-c").arg(command).current_dir(current_dir).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn();
+            let child = Command::new("sh").arg("-c").arg(command).current_dir(current_dir).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn();
             return Self::get_exec_command_real_time_output_by_spawn(child, move |msg| {
                 func(&msg);
             });
