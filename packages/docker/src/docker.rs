@@ -18,7 +18,7 @@ pub struct DockerHandler;
 impl DockerHandler {
     pub async fn exec<F>(docker_config: &DockerConfig, server: &sftp::config::Server, func: F) -> Result<bool, String>
     where
-        F: Fn(&str) + Send + Sync + Copy + 'static,
+        F: Fn(&str) + Send + Sync + 'static,
     {
         let msg = format!("docker config: {:#?}", docker_config);
         func(&msg);
@@ -99,9 +99,12 @@ impl DockerHandler {
         let msg = format!("docker commands:\n{:#?}", commands);
         func(&msg);
 
+        let func_cloned = Arc::new(Mutex::new(func));
         for command in commands.iter() {
+            let func_clone = func_cloned.clone();
             let success = CommandFuncHandler::exec_command(&command, &docker_config.dir, move |msg| {
-                func(msg);
+                let func = func_clone.lock().unwrap();
+                (*func)(&msg);
             });
 
             if !success {
@@ -116,11 +119,13 @@ impl DockerHandler {
 
         info!("run docker commands success !");
         if docker_config.need_push == "Yes" {
+            let func_cloned = func_cloned.clone();
             return Self::update_image(
                 &docker_config,
                 &image,
                 move |msg| {
-                    func(&msg);
+                    let func = func_cloned.lock().unwrap();
+                    (*func)(msg);
                 },
                 server,
             )
@@ -160,7 +165,7 @@ impl DockerHandler {
     /// 连接服务器, 修改 image 地址
     async fn update_image<F>(docker_config: &DockerConfig, image: &str, func: F, server: &sftp::config::Server) -> Result<bool, String>
     where
-        F: Fn(&str) + Send + Sync + Copy + 'static,
+        F: Fn(&str) + Send + Sync + 'static,
     {
         let msg = "update `image` in `kubectl` ...";
         func(&msg);
@@ -266,17 +271,23 @@ impl DockerHandler {
 
     fn delete_pod_name<F>(session: &Session, docker_config: &DockerConfig, login_cmd: &str, func: F) -> Result<bool, String>
     where
-        F: Fn(&str) + Send + Sync + Copy + 'static,
+        F: Fn(&str) + Send + Sync + 'static,
     {
+        let func_cloned = Arc::new(Mutex::new(func));
+        let func_clone = func_cloned.clone();
+        let func_clone_normal = func_cloned.clone();
+
         // 1. 查找 pod 名字 kubectl get pod -n xxx | grep xxx
         let cmd = format!("{} kubectl get pod -n {} | grep {}", login_cmd, docker_config.kubernetes_namespace, docker_config.image);
         let output = Self::exec_remote_command(session, &cmd, "kubectl get pod name error", move |msg| {
-            func(msg);
+            let func = func_clone.lock().unwrap();
+            (*func)(msg);
         })?;
 
         if output.is_empty() {
             let msg = "no pod name output";
-            func(&msg);
+            let func = func_clone_normal.lock().unwrap();
+            (*func)(msg);
             return Ok(false);
         }
 
@@ -284,11 +295,13 @@ impl DockerHandler {
         if let Some(line) = output.lines().find(|line| line.starts_with(&docker_config.image)) {
             let name = line.split_whitespace().next().unwrap_or("");
             let msg = format!("pod name: {}", name);
-            func(&msg);
+            let func = func_clone_normal.lock().unwrap();
+            (*func)(&msg);
             pod_name = name.to_string()
         } else {
             let msg = "no pad name get !";
-            func(&msg);
+            let func = func_clone_normal.lock().unwrap();
+            (*func)(&msg);
         }
 
         if pod_name.is_empty() {
@@ -296,13 +309,16 @@ impl DockerHandler {
         }
 
         // 2. delete pod: kubectl delete pod -n xxx ${podname}
+        let func_clone = func_cloned.clone();
         let cmd = format!("{} kubectl delete pod -n {} {}", login_cmd, docker_config.kubernetes_namespace, pod_name);
         let mut output = Self::exec_remote_command(session, &cmd, "kubectl delete pod error", move |msg| {
-            func(msg);
+            let func = func_clone.lock().unwrap();
+            (*func)(&msg);
         })?;
 
         let msg = format!("kubectl delete pod output: {}", output);
-        func(&msg);
+        let func = func_clone_normal.lock().unwrap();
+        (*func)(&msg);
 
         output = output.trim().to_string();
 
@@ -316,7 +332,7 @@ impl DockerHandler {
     /// 执行远程命令
     fn exec_remote_command<F>(session: &Session, cmd: &str, error_msg: &str, func: F) -> Result<String, String>
     where
-        F: Fn(&str) + Send + Sync + Copy + 'static,
+        F: Fn(&str) + Send + Sync + 'static,
     {
         let msg = format!("exec remote command: {}", cmd);
         func(&msg);
