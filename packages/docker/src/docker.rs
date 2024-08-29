@@ -178,7 +178,8 @@ impl DockerHandler {
         let func = func_clone.lock().unwrap();
         (*func)(&msg);
 
-        let log_func = func_clone.clone();
+        let log_func = |_: &str| {};
+        let log_func = Arc::new(Mutex::new(log_func));
         let session = SftpHandler::connect(&server, log_func.clone())?;
 
         // 登录到 root
