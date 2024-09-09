@@ -86,12 +86,12 @@ impl DockerHandler {
 
             commands.push(format!("docker login {} --username {} --password {}", docker_config.address, docker_config.user, docker_config.password));
             commands.push(pull_nginx_command);
-            commands.push(format!("docker buildx build -f ./{} -t {} --platform {} -o type=docker .", dockerfile_file_name, image, docker_config.platform));
+            commands.push(format!("docker buildx build --file ./{} -t {} --platform {} -o type=docker .", dockerfile_file_name, image, docker_config.platform));
             commands.push(format!("docker push {}", image));
         } else {
             // 不需要推送，直接打本地包
             commands.push(format!(
-                "docker buildx build -f ./{} -t {}:{} --platform {} -o type=docker .",
+                "docker buildx build --file ./{} -t {}:{} --platform {} -o type=docker .",
                 dockerfile_file_name, docker_config.image, docker_config.version, docker_config.platform
             ));
         }
