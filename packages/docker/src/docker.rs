@@ -232,7 +232,7 @@ impl DockerHandler {
                         "containers": [
                             {{
                                 "name": "{}",
-                                "image": "{}"
+                                "image": "{}",
                                  "imagePullPolicy": "Always"
                             }}
                         ]
@@ -265,6 +265,10 @@ impl DockerHandler {
             let func_clone = func_cloned.clone();
             let func = func_clone.lock().unwrap();
             (*func)(&msg);
+        }
+
+        if output.is_empty() {
+            return Err(Error::convert_string("update `image` in `kubectl` failed ..."));
         }
 
         {
