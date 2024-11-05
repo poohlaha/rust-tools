@@ -173,9 +173,11 @@ impl DockerHandler {
                 continue;
             }
 
-            let command = line.replace("FROM", "docker pull");
+            let command = line.split_whitespace().nth(1).map(String::from).unwrap_or(String::new());
             info!("docker pull command: {}", command);
-            commands.push(command);
+            if !command.is_empty() {
+                commands.push(command);
+            }
         }
 
         return commands;
