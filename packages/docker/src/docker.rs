@@ -86,15 +86,18 @@ impl DockerHandler {
         }
 
         if docker_config.need_push == "Yes" {
-            let pull_nginx_command = Self::exec_docker_pull_nginx(&docker_config);
-            if pull_nginx_command.is_empty() {
+            let pull_nginx_command_list = Self::exec_docker_pull_nginx(&docker_config);
+            if pull_nginx_command_list.is_empty() {
                 FileHandler::delete_file(&dockerfile_file_path_str)?; // 删除 Dockerfile 文件
                 FileHandler::delete_file(&nginx_file_path_str)?; // 删除 nginx.conf 文件
                 return Err(Error::convert_string("can not get pull nginx command !"));
             }
 
             commands.push(format!("docker login {} --username {} --password {}", docker_config.address, docker_config.user, docker_config.password));
-            commands.push(pull_nginx_command);
+            // pull command list
+            for pull_nginx_command in pull_nginx_command_list.iter() {
+                commands.push(pull_nginx_command.to_string());
+            }
             commands.push(format!("docker {} build --file ./{} -t {} --platform {} -o type=docker .", docker_buildx, dockerfile_file_name, image, docker_config.platform));
             commands.push(format!("docker push {}", image));
         } else {
@@ -145,30 +148,37 @@ impl DockerHandler {
     }
 
     //  拉取 nginx 镜像 docker pull xxx
-    fn exec_docker_pull_nginx(docker_config: &DockerConfig) -> String {
-        let mut first_line = String::new();
+    fn exec_docker_pull_nginx(docker_config: &DockerConfig) -> Vec<String> {
+        let mut file_lines: Vec<String> = Vec::new();
         let lines = docker_config.dockerfile.lines();
         for line in lines.into_iter() {
-            if !first_line.is_empty() {
-                break;
+            if line.is_empty() {
+                continue;
             }
 
-            first_line = line.to_string();
+            if line.starts_with("FROM ") {
+                file_lines.push(line.to_string());
+            }
         }
 
-        if first_line.is_empty() {
-            return String::new();
+        info!("docker from list: {:#?}", file_lines);
+
+        if file_lines.is_empty() {
+            return Vec::new();
         }
 
-        let first_line = first_line.trim();
-        if !first_line.starts_with("FROM ") {
-            error!("docker pull nginx error, not start with `FORM` ");
-            return String::new();
+        let mut commands: Vec<String> = Vec::new();
+        for line in file_lines.iter() {
+            if !line.starts_with("FROM ") {
+                continue;
+            }
+
+            let command = line.replace("FROM", "docker pull");
+            info!("docker pull command: {}", command);
+            commands.push(command);
         }
 
-        let command = first_line.replace("FROM", "docker pull");
-        info!("docker pull command: {}", command);
-        return command;
+        return commands;
     }
 
     /// 连接服务器, 修改 image 地址
