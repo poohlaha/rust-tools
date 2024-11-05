@@ -176,7 +176,7 @@ impl DockerHandler {
             let command = line.split_whitespace().nth(1).map(String::from).unwrap_or(String::new());
             info!("docker pull command: {}", command);
             if !command.is_empty() {
-                commands.push("docker pull".to_string() + &command);
+                commands.push("docker pull ".to_string() + &command);
             }
         }
 
