@@ -19,14 +19,14 @@ pub type HttpFormData = reqwest::blocking::multipart::Form;
 /// is_form_submit: use form submit
 pub async fn client_send(opts: Options, is_form_submit: bool) -> Result<HttpResponse, HttpError> {
     let response: Result<HttpResponse, HttpError> = HttpClient::send(opts, is_form_submit).await;
-    println!("{} response: {:#?}", LOGGER_PREFIX.cyan().bold(), response);
+    // println!("{} response: {:#?}", LOGGER_PREFIX.cyan().bold(), response);
     return response;
 }
 
 /// send by form-data
 pub fn client_send_form_data(opts: Options) -> Result<HttpResponse, HttpError> {
     let response: Result<HttpResponse, HttpError> = HttpClient::send_form_data(opts);
-    println!("{} response: {:#?}", LOGGER_PREFIX.cyan().bold(), response);
+    // println!("{} response: {:#?}", LOGGER_PREFIX.cyan().bold(), response);
     return response;
 }
 

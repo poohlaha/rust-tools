@@ -57,10 +57,10 @@ impl HttpClient {
 
     /// send request
     pub async fn send(options: Options, is_form_submit: bool) -> Result<HttpResponse, HttpError> {
-        println!("{} options: {:#?}", LOGGER_PREFIX.cyan().bold(), options);
+        // println!("{} options: {:#?}", LOGGER_PREFIX.cyan().bold(), options);
 
         if options.url.is_empty() {
-            println!("{} {}", LOGGER_PREFIX.cyan().bold(), "url is empty !".red().bold());
+            // println!("{} {}", LOGGER_PREFIX.cyan().bold(), "url is empty !".red().bold());
             return Err(HttpError::Empty("url is empty !".to_string()));
         }
 
@@ -85,7 +85,7 @@ impl HttpClient {
             request_headers.insert(&HeaderName::from_bytes(name.as_bytes()).unwrap(), value.as_str().parse().unwrap());
         }
 
-        println!("{} headers: {:#?}", LOGGER_PREFIX.cyan().bold(), request_headers);
+        // println!("{} headers: {:#?}", LOGGER_PREFIX.cyan().bold(), request_headers);
 
         // body
         if let Some(data) = options.data {
@@ -105,10 +105,10 @@ impl HttpClient {
 
     /// send form-data request, use reqwest blocking
     pub fn send_form_data(options: Options) -> Result<HttpResponse, HttpError> {
-        println!("{} options: {:#?}", LOGGER_PREFIX.cyan().bold(), options);
+        // println!("{} options: {:#?}", LOGGER_PREFIX.cyan().bold(), options);
 
         if options.url.is_empty() {
-            println!("{} {}", LOGGER_PREFIX.cyan().bold(), "url is empty !".red().bold());
+            // println!("{} {}", LOGGER_PREFIX.cyan().bold(), "url is empty !".red().bold());
             return Err(HttpError::Empty("url is empty !".to_string()));
         }
 
@@ -133,7 +133,7 @@ impl HttpClient {
             request_headers.insert(&HeaderName::from_bytes(name.as_bytes()).unwrap(), value.as_str().parse().unwrap());
         }
 
-        println!("{} headers: {:?}", LOGGER_PREFIX.cyan().bold(), request_headers);
+        // println!("{} headers: {:?}", LOGGER_PREFIX.cyan().bold(), request_headers);
 
         // form
         if let Some(form) = options.form {
