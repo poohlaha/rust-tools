@@ -17,6 +17,7 @@ pub struct DockerConfig {
     pub platform: String,             // docker 打包平台
     pub deploy_dir: String,           // 发布目录
     pub kubernetes_namespace: String, // Kubernetes 命名空间名称
+    pub shell: Option<String>,        // Pod 中需要执行的脚本
 }
 
 impl DockerConfig {

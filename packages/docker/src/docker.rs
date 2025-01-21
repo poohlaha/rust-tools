@@ -344,10 +344,39 @@ impl DockerHandler {
             return Ok(false);
         }
 
-        return Ok(true);
+        // 执行 shell 脚本
+        let shell = docker_config.shell.clone();
+        if let Some(shell) = shell {
+            if shell.is_empty() {
+                return Ok(true);
+            }
+
+            let func_clone = func_cloned.clone();
+            let pod_name = Self::get_pod_name(&session, docker_config, &login_cmd, move |msg| {
+                let func = func_clone.lock().unwrap();
+                (*func)(&msg);
+            })?;
+
+            if pod_name.is_empty() {
+                return Ok(false);
+            }
+
+            // kubectl exec <pod-name> -- sh -c "command1 && command2 && command3"
+            let mut shell = shell.clone();
+            shell = shell.replace("\n", "&&");
+
+            let cmd = format!("{} kubectl exec {} -- sh -c {}", login_cmd, pod_name, shell);
+            let func_clone = func_cloned.clone();
+            Self::exec_remote_command(&session, &cmd, &format!("kubectl exec pod: {} command: {} error", pod_name, cmd), move |msg| {
+                let func = func_clone.lock().unwrap();
+                (*func)(&msg);
+            })?;
+        }
+
+        Ok(true)
     }
 
-    fn delete_pod_name<F>(session: &Session, docker_config: &DockerConfig, login_cmd: &str, func: F) -> Result<bool, String>
+    fn get_pod_name<F>(session: &Session, docker_config: &DockerConfig, login_cmd: &str, func: F) -> Result<String, String>
     where
         F: Fn(&str) + Send + Sync + 'static,
     {
@@ -368,7 +397,7 @@ impl DockerHandler {
                 let func = func_clone.lock().unwrap();
                 (*func)(msg);
             }
-            return Ok(false);
+            return Ok(String::new());
         }
 
         let mut pod_name = String::new();
@@ -389,6 +418,26 @@ impl DockerHandler {
                 (*func)(&msg);
             }
         }
+
+        if pod_name.is_empty() {
+            return Ok(String::new());
+        }
+
+        return Ok(pod_name);
+    }
+
+    fn delete_pod_name<F>(session: &Session, docker_config: &DockerConfig, login_cmd: &str, func: F) -> Result<bool, String>
+    where
+        F: Fn(&str) + Send + Sync + 'static,
+    {
+        let func_cloned = Arc::new(Mutex::new(func));
+
+        let func_clone = func_cloned.clone();
+        // 1. 查找 pod 名字 kubectl get pod -n xxx | grep xxx
+        let pod_name = Self::get_pod_name(session, docker_config, login_cmd, move |msg| {
+            let func = func_clone.lock().unwrap();
+            (*func)(&msg);
+        })?;
 
         if pod_name.is_empty() {
             return Ok(false);
@@ -444,7 +493,6 @@ impl DockerHandler {
 
         // PipelineRunnable::save_log(app, &format!("output info: {}", output), &pipeline.server_id, &pipeline.id, order);
         SftpHandler::close_channel_in_err(&mut channel);
-
-        return Ok(output);
+        Ok(output)
     }
 }
