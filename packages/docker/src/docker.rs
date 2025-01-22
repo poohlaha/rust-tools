@@ -365,7 +365,7 @@ impl DockerHandler {
             let mut shell = shell.clone();
             shell = shell.replace("\n", "&&");
 
-            let cmd = format!("{} kubectl exec {} -- sh -c '{}'", login_cmd, pod_name, shell);
+            let cmd = format!("{} kubectl exec {} -n {} -- sh -c '{}'", login_cmd, pod_name, docker_config.kubernetes_namespace, shell);
             let func_clone = func_cloned.clone();
             Self::exec_remote_command(&session, &cmd, &format!("kubectl exec pod: {} command: {} error", pod_name, cmd), move |msg| {
                 let func = func_clone.lock().unwrap();
