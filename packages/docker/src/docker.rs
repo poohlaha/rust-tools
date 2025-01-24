@@ -363,7 +363,6 @@ impl DockerHandler {
 
             // kubectl exec <pod-name> -- bash -c "command1 && command2 && command3"
             let mut shell = shell.clone();
-            shell = shell.replace("\n", "&&");
 
             let mut cmd = format!("{} kubectl exec {} -n {} -- bash ", login_cmd, pod_name, docker_config.kubernetes_namespace);
             if shell.contains(".sh") || shell.ends_with(".sh") {
@@ -371,14 +370,22 @@ impl DockerHandler {
                 cmd += format!(" {}", shell).as_str();
             } else {
                 // 执行脚本
+                shell = shell.replace("\n", "&&");
                 cmd += format!(" -c '{}'", shell).as_str();
             }
 
             let func_clone = func_cloned.clone();
-            Self::exec_remote_command(&session, &cmd, &format!("kubectl exec pod: {} command: {} error", pod_name, cmd), move |msg| {
+            let content = Self::exec_remote_command(&session, &cmd, &format!("kubectl exec pod: {} command: {} error", pod_name, cmd), move |msg| {
                 let func = func_clone.lock().unwrap();
                 (*func)(&msg);
             })?;
+
+            {
+                let msg = format!("pod `{}` exec shell command output info: {}", pod_name, content);
+                let func_clone = func_cloned.clone();
+                let func = func_clone.lock().unwrap();
+                (*func)(&msg);
+            }
         }
 
         Ok(true)
