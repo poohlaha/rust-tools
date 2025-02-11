@@ -9,11 +9,37 @@ use handlers::utils::Utils;
 use log::{error, info};
 use sftp::sftp::SftpHandler;
 use ssh2::Session;
+use std::future::Future;
 use std::io::Read;
 use std::path::Path;
+use std::pin::Pin;
 use std::sync::{Arc, Mutex, RwLock};
+use std::task::{Context, Poll};
+use std::time::{Duration, Instant};
 
 pub struct DockerHandler;
+
+// 手动轮询
+struct Sleep {
+    deadline: Instant,
+}
+
+impl Future for Sleep {
+    type Output = ();
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        if Instant::now() >= self.deadline {
+            Poll::Ready(())
+        } else {
+            cx.waker().wake_by_ref();
+            Poll::Pending
+        }
+    }
+}
+
+async fn sleep(duration: Duration) {
+    Sleep { deadline: Instant::now() + duration }.await
+}
 
 impl DockerHandler {
     pub async fn exec<F>(docker_config: &DockerConfig, server: &sftp::config::Server, func: F) -> Result<bool, String>
@@ -349,6 +375,16 @@ impl DockerHandler {
         if let Some(shell) = shell {
             if shell.is_empty() {
                 return Ok(true);
+            }
+
+            // 休眠 20 秒, 用于 pod restart 重新获取 pod name
+            {
+                let time: u64 = 20;
+                let msg = format!("Pod will sleep {} seconds !", time);
+                sleep(Duration::from_secs(time)).await;
+                let func_clone = func_cloned.clone();
+                let func = func_clone.lock().unwrap();
+                (*func)(&msg);
             }
 
             let func_clone = func_cloned.clone();
