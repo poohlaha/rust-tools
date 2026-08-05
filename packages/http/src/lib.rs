@@ -23,6 +23,10 @@ pub async fn client_send(opts: Options, is_form_submit: bool) -> Result<HttpResp
     return response;
 }
 
+pub async fn client_text_send(opts: Options, is_form_submit: bool) -> Result<HttpResponse, HttpError> {
+    HttpClient::send_by_text(opts, is_form_submit).await
+}
+
 /// send by form-data
 pub fn client_send_form_data(opts: Options) -> Result<HttpResponse, HttpError> {
     let response: Result<HttpResponse, HttpError> = HttpClient::send_form_data(opts);

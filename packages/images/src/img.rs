@@ -5,7 +5,7 @@ use colored::Colorize;
 use image::imageops::FilterType;
 use imagequant::Attributes;
 use lodepng::decode32_file;
-use mozjpeg::{ColorSpace, Compress, ScanMode};
+// use mozjpeg::{ColorSpace, Compress, ScanMode};
 use std::fs;
 use std::fs::File;
 use std::io::Write;
@@ -61,6 +61,7 @@ impl Img {
     where
         F: FnMut(&str),
     {
+        /*
         let target_width = img_resized.width;
         let target_height = img_resized.height;
         let resized_img_data = img_resized.rgb8;
@@ -123,6 +124,9 @@ impl Img {
         };
 
         return flag;
+         */
+
+        return true;
     }
 
     /// 压缩 png

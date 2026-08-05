@@ -55,8 +55,7 @@ impl HttpClient {
         return new_headers;
     }
 
-    /// send request
-    pub async fn send(options: Options, is_form_submit: bool) -> Result<HttpResponse, HttpError> {
+    async fn http_send(options: Options, is_form_submit: bool) -> Result<(StatusCode, HeaderMap, String), HttpError> {
         // println!("{} options: {:#?}", LOGGER_PREFIX.cyan().bold(), options);
 
         if options.url.is_empty() {
@@ -100,7 +99,26 @@ impl HttpClient {
         let status = response.status();
         let response_headers = response.headers().clone();
         let body = response.text().await.unwrap_or("".to_string());
-        Ok(HttpClient::get_response(status, response_headers, body))
+        Ok((status, response_headers, body))
+    }
+
+    async fn send_inner(options: Options, is_form_submit: bool, is_response_json: bool) -> Result<HttpResponse, HttpError> {
+        let res = Self::http_send(options, is_form_submit).await;
+
+        match res {
+            Ok((status_code, response_headers, body)) => Ok(HttpClient::get_response(status_code, response_headers, body, is_response_json)),
+            Err(err) => Err(err),
+        }
+    }
+
+    pub async fn send_by_text(options: Options, is_form_submit: bool) -> Result<HttpResponse, HttpError> {
+        Self::send_inner(options, is_form_submit, false).await
+    }
+
+    /// send request
+    pub async fn send(options: Options, is_form_submit: bool) -> Result<HttpResponse, HttpError> {
+        // println!("{} options: {:#?}", LOGGER_PREFIX.cyan().bold(), options);
+        Self::send_inner(options, is_form_submit, true).await
     }
 
     /// send form-data request, use reqwest blocking
@@ -144,18 +162,21 @@ impl HttpClient {
         let status = response.status();
         let response_headers = response.headers().clone();
         let body = response.text().unwrap_or("".to_string());
-        Ok(HttpClient::get_response(status, response_headers, body))
+
+        Ok(HttpClient::get_response(status, response_headers, body, true))
     }
 
     /// get http response
-    fn get_response(status: StatusCode, response_headers: HeaderMap, body: String) -> HttpResponse {
+    fn get_response(status: StatusCode, response_headers: HeaderMap, body: String, is_response_json: bool) -> HttpResponse {
         let status_code = status.as_u16();
         if status.is_success() {
             let headers: HashMap<String, String> = response_headers.iter().map(|(name, value)| (name.to_string(), value.to_str().unwrap_or("").to_string())).collect();
+            let body = if is_response_json { serde_json::from_slice(body.as_bytes()).unwrap_or(Value::Null) } else { Value::String(body) };
+
             return HttpResponse {
                 status_code: 200,
                 headers,
-                body: serde_json::from_slice(body.as_bytes()).unwrap(),
+                body,
                 error: String::new(),
             };
         } else {
@@ -171,5 +192,15 @@ impl HttpClient {
         }
 
         return send_timeout;
+    }
+
+    // get is response json
+    fn get_is_response_json(is_response_json: Option<bool>) -> bool {
+        let mut response_json = true;
+        if !is_response_json.is_none() {
+            response_json = is_response_json.unwrap_or(true);
+        }
+
+        response_json
     }
 }
