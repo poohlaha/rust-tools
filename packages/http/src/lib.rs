@@ -7,6 +7,8 @@ use crate::options::HttpError;
 use client::HttpClient;
 use colored::*;
 use indicatif::MultiProgress;
+use reqwest::header::HeaderMap;
+use reqwest::StatusCode;
 use options::HttpResponse;
 use options::Options;
 
@@ -21,6 +23,10 @@ pub async fn client_send(opts: Options, is_form_submit: bool) -> Result<HttpResp
     let response: Result<HttpResponse, HttpError> = HttpClient::send(opts, is_form_submit).await;
     // println!("{} response: {:#?}", LOGGER_PREFIX.cyan().bold(), response);
     return response;
+}
+
+pub async fn http_send(opts: Options, is_form_submit: bool) -> Result<(StatusCode, HeaderMap, String), HttpError> {
+    HttpClient::http_send(opts, is_form_submit).await
 }
 
 pub async fn client_text_send(opts: Options, is_form_submit: bool) -> Result<HttpResponse, HttpError> {

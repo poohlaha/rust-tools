@@ -1,7 +1,5 @@
 use crate::options::HttpResponse;
 use crate::options::{HttpError, Options};
-use crate::LOGGER_PREFIX;
-use colored::*;
 use reqwest::header::{HeaderMap, HeaderName};
 use reqwest::{Client, Method, RequestBuilder, StatusCode};
 use serde_json::Value;
@@ -55,7 +53,7 @@ impl HttpClient {
         return new_headers;
     }
 
-    async fn http_send(options: Options, is_form_submit: bool) -> Result<(StatusCode, HeaderMap, String), HttpError> {
+    pub async fn http_send(options: Options, is_form_submit: bool) -> Result<(StatusCode, HeaderMap, String), HttpError> {
         // println!("{} options: {:#?}", LOGGER_PREFIX.cyan().bold(), options);
 
         if options.url.is_empty() {
